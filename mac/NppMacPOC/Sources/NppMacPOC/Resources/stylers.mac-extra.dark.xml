@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Overlay propio del port macOS: estilos de lenguajes que el tema oscuro de
+     Notepad++ (DarkModeDefault.xml, symlink al árbol upstream) no define. Se
+     consulta después del upstream, en cascada. Paleta Zenburn, coherente con
+     DarkModeDefault.xml. -->
+<NotepadPlus>
+    <LexerStyles>
+        <LexerType name="markdown" desc="Markdown" ext="">
+            <WordsStyle name="DEFAULT" styleID="0" fgColor="DCDCCC" bgColor="3F3F3F" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="LINE BEGIN" styleID="1" fgColor="DCDCCC" bgColor="3F3F3F" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="STRONG 1" styleID="2" fgColor="F0DFAF" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="STRONG 2" styleID="3" fgColor="F0DFAF" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="EM 1" styleID="4" fgColor="DFAF8F" bgColor="3F3F3F" fontName="" fontStyle="2" fontSize="" />
+            <WordsStyle name="EM 2" styleID="5" fgColor="DFAF8F" bgColor="3F3F3F" fontName="" fontStyle="2" fontSize="" />
+            <WordsStyle name="HEADER 1" styleID="6" fgColor="94BFF3" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="HEADER 2" styleID="7" fgColor="8CD0D3" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="HEADER 3" styleID="8" fgColor="8CD0D3" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="HEADER 4" styleID="9" fgColor="7CB8BB" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="HEADER 5" styleID="10" fgColor="7CB8BB" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="HEADER 6" styleID="11" fgColor="6CA0A3" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="PRECHAR" styleID="12" fgColor="709080" bgColor="3F3F3F" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="ULIST ITEM" styleID="13" fgColor="DFAF8F" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="OLIST ITEM" styleID="14" fgColor="DFAF8F" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="BLOCKQUOTE" styleID="15" fgColor="7F9F7F" bgColor="3F3F3F" fontName="" fontStyle="2" fontSize="" />
+            <WordsStyle name="STRIKEOUT" styleID="16" fgColor="709080" bgColor="3F3F3F" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="HRULE" styleID="17" fgColor="CC9393" bgColor="3F3F3F" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="LINK" styleID="18" fgColor="94BFF3" bgColor="3F3F3F" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="CODE" styleID="19" fgColor="CC9393" bgColor="4F4F4F" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="CODE 2" styleID="20" fgColor="CC9393" bgColor="4F4F4F" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="CODE BLOCK" styleID="21" fgColor="CC9393" bgColor="4F4F4F" fontName="" fontStyle="0" fontSize="" />
+        </LexerType>
+    </LexerStyles>
+</NotepadPlus>

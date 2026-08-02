@@ -1,0 +1,1 @@
+../../../../../PowerEditor/src/uchardet/uchardet.h

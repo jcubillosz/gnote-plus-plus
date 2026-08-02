@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Sin estas dos claves, CFBundle resuelve los .strings del bundle de
+	     recursos de SwiftPM contra un bundle principal que no declara idiomas y
+	     cae a inglés, ignorando el idioma del sistema. Verificado: un .app sin
+	     declararlos muestra "Save" con el sistema en es-CL. Agregar un idioma
+	     nuevo implica sumarlo acá además de crear su .lproj. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>es</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>es</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>GNote++</string>
+	<key>CFBundleDisplayName</key>
+	<string>GNote++</string>
+	<!-- "++" no es válido en un bundle identifier: solo alfanumérico, guion y punto. -->
+	<key>CFBundleIdentifier</key>
+	<string>cl.jcubillos.gnotepp</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleIconFile</key>
+	<string>GNotePP</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<!-- NO cambiar a GNote++: es el nombre real del binario que produce SwiftPM
+	     (el target del paquete sigue llamándose NppMacPOC). Si no coincide con el
+	     archivo dentro de Contents/MacOS/, el .app no arranca. -->
+	<key>CFBundleExecutable</key>
+	<string>NppMacPOC</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>GNote++. Basado en Notepad++ (GPL-3.0) de Don Ho, Scintilla/Lexilla (HPND) de Neil Hodgson, uchardet (MPL-1.1), pugixml (MIT) y cmark-gfm (BSD-2). Ver LICENSE.</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
+</dict>
+</plist>

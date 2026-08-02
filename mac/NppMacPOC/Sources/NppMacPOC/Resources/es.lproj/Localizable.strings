@@ -1,0 +1,104 @@
+/* menus */
+"Nuevo" = "Nuevo";
+"Abrir archivo…" = "Abrir archivo…";
+"Abrir carpeta…" = "Abrir carpeta…";
+"Abrir recientes" = "Abrir recientes";
+"Restaurar archivo cerrado" = "Restaurar archivo cerrado";
+"Vaciar lista de recientes" = "Vaciar lista de recientes";
+"Cerrar pestaña" = "Cerrar pestaña";
+"Guardar" = "Guardar";
+"Guardar como…" = "Guardar como…";
+"Buscar…" = "Buscar…";
+"Buscar y reemplazar…" = "Buscar y reemplazar…";
+"Buscar siguiente" = "Buscar siguiente";
+"Buscar anterior" = "Buscar anterior";
+"Lenguaje" = "Lenguaje";
+"Codificación" = "Codificación";
+"Recargar como %@" = "Recargar como %@";
+"Vista" = "Vista";
+"Ajuste de línea" = "Ajuste de línea";
+"Números de línea" = "Números de línea";
+"Mostrar espacios en blanco" = "Mostrar espacios en blanco";
+"Vista previa de Markdown" = "Vista previa de Markdown";
+
+/* status bar */
+"Ln %lld, Col %lld" = "Ln %lld, Col %lld";
+"Sel: %lld car, %lld líneas" = "Sel: %lld car, %lld líneas";
+"Fin de línea del archivo" = "Fin de línea del archivo";
+"Codificación del archivo" = "Codificación del archivo";
+
+/* find bar */
+"Buscar" = "Buscar";
+"Coincidir mayúsculas/minúsculas" = "Coincidir mayúsculas/minúsculas";
+"Expresión regular" = "Expresión regular";
+"Solo palabras completas" = "Solo palabras completas";
+"Sin resultados" = "Sin resultados";
+"Reemplazar" = "Reemplazar";
+"Reemplazar todos" = "Reemplazar todos";
+
+/* alerts */
+"%@ puede no ser un archivo de texto." = "%@ puede no ser un archivo de texto.";
+"Contiene bytes nulos. Suele pasar con archivos UTF-16 sin BOM o binarios. Si conoces su codificación, recárgalo desde el menú Codificación antes de editarlo; guardar tal como está podría dañarlo." = "Contiene bytes nulos. Suele pasar con archivos UTF-16 sin BOM o binarios. Si conoces su codificación, recárgalo desde el menú Codificación antes de editarlo; guardar tal como está podría dañarlo.";
+"%@ tiene cambios sin guardar. ¿Cerrar de todas formas?" = "%@ tiene cambios sin guardar. ¿Cerrar de todas formas?";
+"%@ tiene cambios sin guardar. ¿Recargar de todas formas?" = "%@ tiene cambios sin guardar. ¿Recargar de todas formas?";
+"Descartar" = "Descartar";
+"Cancelar" = "Cancelar";
+"OK" = "OK";
+"No se pudo guardar %@." = "No se pudo guardar %@.";
+"El texto no se puede guardar como %@." = "El texto no se puede guardar como %@.";
+"Tiene caracteres que ese encoding no representa. Guardarlo como UTF-8 los admite todos, pero cambia la codificación del archivo." = "Tiene caracteres que ese encoding no representa. Guardarlo como UTF-8 los admite todos, pero cambia la codificación del archivo.";
+"Guardar como UTF-8" = "Guardar como UTF-8";
+"Convertido desde %@ al guardar: el texto tenía caracteres que %@ no representa." = "Convertido desde %@ al guardar: el texto tenía caracteres que %@ no representa.";
+"No se pudo releer %@ como %@." = "No se pudo releer %@ como %@.";
+"El contenido del archivo no es válido en esa codificación. El documento quedó como estaba." = "El contenido del archivo no es válido en esa codificación. El documento quedó como estaba.";
+"Forzado manualmente desde el menú Codificación." = "Forzado manualmente desde el menú Codificación.";
+"No se detectó un encoding específico, pero el contenido es UTF-8 válido." = "No se detectó un encoding específico, pero el contenido es UTF-8 válido.";
+"No se detectó encoding y el contenido no era UTF-8 válido." = "No se detectó encoding y el contenido no era UTF-8 válido.";
+"No se pudo determinar el encoding; se forzó UTF-8 reemplazando los bytes inválidos." = "No se pudo determinar el encoding; se forzó UTF-8 reemplazando los bytes inválidos.";
+"Se detectó %@, pero el contenido no decodificaba como tal; se usó UTF-8." = "Se detectó %@, pero el contenido no decodificaba como tal; se usó UTF-8.";
+"Se detectó %@, pero no se pudo decodificar; se forzó UTF-8 reemplazando los bytes inválidos." = "Se detectó %@, pero no se pudo decodificar; se forzó UTF-8 reemplazando los bytes inválidos.";
+"No se pudo abrir %@." = "No se pudo abrir %@.";
+"El archivo no se encontró o no se pudo leer. Puede que se haya movido o borrado." = "El archivo no se encontró o no se pudo leer. Puede que se haya movido o borrado.";
+
+/* preferences */
+"Fuente" = "Fuente";
+"Familia" = "Familia";
+"Tamaño: %lld" = "Tamaño: %lld";
+"Indentación" = "Indentación";
+"Usar tabs (en vez de espacios)" = "Usar tabs (en vez de espacios)";
+"Ancho de tab: %lld" = "Ancho de tab: %lld";
+
+/* sidebar and empty states */
+"Abre un archivo para empezar" = "Abre un archivo para empezar";
+"Abre una carpeta para navegar sus archivos" = "Abre una carpeta para navegar sus archivos";
+"sin título %lld" = "sin título %lld";
+
+/* ir a la línea */
+"Ir a la línea" = "Ir a la línea";
+"Ir a la línea…" = "Ir a la línea…";
+"Línea" = "Línea";
+"Posición" = "Posición";
+"Ir a la línea (1–%lld)" = "Ir a la línea (1–%lld)";
+"Ir a la posición (0–%lld)" = "Ir a la posición (0–%lld)";
+
+/* renombrar */
+"Renombrar…" = "Renombrar…";
+"Renombrar archivo" = "Renombrar archivo";
+"Escribe el nombre nuevo. El archivo se mueve en disco; los cambios sin guardar no se pierden." = "Escribe el nombre nuevo. El archivo se mueve en disco; los cambios sin guardar no se pierden.";
+"Ya existe un archivo llamado %@." = "Ya existe un archivo llamado %@.";
+"Elige otro nombre; renombrar no sobrescribe archivos." = "Elige otro nombre; renombrar no sobrescribe archivos.";
+"No se pudo renombrar %@." = "No se pudo renombrar %@.";
+"%@ no es un nombre de archivo válido." = "%@ no es un nombre de archivo válido.";
+"El nombre no puede contener «/» ni ser «.» o «..». Renombrar cambia el nombre, no la carpeta." = "El nombre no puede contener «/» ni ser «.» o «..». Renombrar cambia el nombre, no la carpeta.";
+
+/* about */
+"Acerca de GNote++" = "Acerca de GNote++";
+"Versión %@" = "Versión %@";
+"Editor de texto para macOS, basado en el código de Notepad++." = "Editor de texto para macOS, basado en el código de Notepad++.";
+"Gracias por utilizar GNote++" = "Gracias por utilizar GNote++";
+"Puedes contribuir al desarrollo de mejoras donando en el siguiente enlace." = "Puedes contribuir al desarrollo de mejoras donando en el siguiente enlace.";
+"Apoyar el proyecto ☕" = "Apoyar el proyecto ☕";
+"Créditos y licencias" = "Créditos y licencias";
+"GNote++ se distribuye bajo la GPL-3.0. Eso incluye el derecho a obtener, modificar y redistribuir su código fuente." = "GNote++ se distribuye bajo la GPL-3.0. Eso incluye el derecho a obtener, modificar y redistribuir su código fuente.";
+"Código fuente" = "Código fuente";
+"Texto de la licencia" = "Texto de la licencia";

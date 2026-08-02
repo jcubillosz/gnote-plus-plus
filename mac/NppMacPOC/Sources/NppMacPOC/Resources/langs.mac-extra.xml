@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Overlay propio del port macOS: lenguajes que Notepad++ no define y que
+     no podemos agregar a langs.model.xml porque es un symlink al árbol
+     upstream. Se consulta después del upstream, en cascada. -->
+<NotepadPlus>
+    <Languages>
+        <Language name="markdown" ext="md markdown mdown mkd mkdn mdwn mdtxt mdtext" commentStart="&lt;!--" commentEnd="--&gt;" />
+    </Languages>
+</NotepadPlus>

@@ -1,0 +1,104 @@
+/* menus */
+"Nuevo" = "New";
+"Abrir archivo…" = "Open File…";
+"Abrir carpeta…" = "Open Folder…";
+"Abrir recientes" = "Open Recent";
+"Restaurar archivo cerrado" = "Reopen Closed File";
+"Vaciar lista de recientes" = "Clear Recent Files";
+"Cerrar pestaña" = "Close Tab";
+"Guardar" = "Save";
+"Guardar como…" = "Save As…";
+"Buscar…" = "Find…";
+"Buscar y reemplazar…" = "Find and Replace…";
+"Buscar siguiente" = "Find Next";
+"Buscar anterior" = "Find Previous";
+"Lenguaje" = "Language";
+"Codificación" = "Encoding";
+"Recargar como %@" = "Reload as %@";
+"Vista" = "View";
+"Ajuste de línea" = "Word Wrap";
+"Números de línea" = "Line Numbers";
+"Mostrar espacios en blanco" = "Show Invisibles";
+"Vista previa de Markdown" = "Markdown Preview";
+
+/* status bar */
+"Ln %lld, Col %lld" = "Ln %lld, Col %lld";
+"Sel: %lld car, %lld líneas" = "Sel: %lld chars, %lld lines";
+"Fin de línea del archivo" = "Line ending of the file";
+"Codificación del archivo" = "File encoding";
+
+/* find bar */
+"Buscar" = "Find";
+"Coincidir mayúsculas/minúsculas" = "Match Case";
+"Expresión regular" = "Regular Expression";
+"Solo palabras completas" = "Whole Word Only";
+"Sin resultados" = "No results";
+"Reemplazar" = "Replace";
+"Reemplazar todos" = "Replace All";
+
+/* alerts */
+"%@ puede no ser un archivo de texto." = "%@ may not be a text file.";
+"Contiene bytes nulos. Suele pasar con archivos UTF-16 sin BOM o binarios. Si conoces su codificación, recárgalo desde el menú Codificación antes de editarlo; guardar tal como está podría dañarlo." = "It contains null bytes. This usually happens with UTF-16 files without a BOM, or with binary files. If you know its encoding, reload it from the Encoding menu before editing; saving it as is could corrupt it.";
+"%@ tiene cambios sin guardar. ¿Cerrar de todas formas?" = "%@ has unsaved changes. Close anyway?";
+"%@ tiene cambios sin guardar. ¿Recargar de todas formas?" = "%@ has unsaved changes. Reload anyway?";
+"Descartar" = "Discard";
+"Cancelar" = "Cancel";
+"OK" = "OK";
+"No se pudo guardar %@." = "Could not save %@.";
+"El texto no se puede guardar como %@." = "The text cannot be saved as %@.";
+"Tiene caracteres que ese encoding no representa. Guardarlo como UTF-8 los admite todos, pero cambia la codificación del archivo." = "It has characters that this encoding cannot represent. Saving it as UTF-8 supports all of them, but changes the file's encoding.";
+"Guardar como UTF-8" = "Save as UTF-8";
+"Convertido desde %@ al guardar: el texto tenía caracteres que %@ no representa." = "Converted from %@ on save: the text had characters that %@ cannot represent.";
+"No se pudo releer %@ como %@." = "Could not reload %@ as %@.";
+"El contenido del archivo no es válido en esa codificación. El documento quedó como estaba." = "The file's content is not valid in that encoding. The document was left unchanged.";
+"Forzado manualmente desde el menú Codificación." = "Set manually from the Encoding menu.";
+"No se detectó un encoding específico, pero el contenido es UTF-8 válido." = "No specific encoding was detected, but the content is valid UTF-8.";
+"No se detectó encoding y el contenido no era UTF-8 válido." = "No encoding was detected and the content was not valid UTF-8.";
+"No se pudo determinar el encoding; se forzó UTF-8 reemplazando los bytes inválidos." = "The encoding could not be determined; UTF-8 was forced, replacing the invalid bytes.";
+"Se detectó %@, pero el contenido no decodificaba como tal; se usó UTF-8." = "%@ was detected, but the content did not decode as such; UTF-8 was used instead.";
+"Se detectó %@, pero no se pudo decodificar; se forzó UTF-8 reemplazando los bytes inválidos." = "%@ was detected, but it could not be decoded; UTF-8 was forced, replacing the invalid bytes.";
+"No se pudo abrir %@." = "Could not open %@.";
+"El archivo no se encontró o no se pudo leer. Puede que se haya movido o borrado." = "The file was not found or could not be read. It may have been moved or deleted.";
+
+/* preferences */
+"Fuente" = "Font";
+"Familia" = "Family";
+"Tamaño: %lld" = "Size: %lld";
+"Indentación" = "Indentation";
+"Usar tabs (en vez de espacios)" = "Use tabs (instead of spaces)";
+"Ancho de tab: %lld" = "Tab width: %lld";
+
+/* sidebar and empty states */
+"Abre un archivo para empezar" = "Open a file to get started";
+"Abre una carpeta para navegar sus archivos" = "Open a folder to browse its files";
+"sin título %lld" = "untitled %lld";
+
+/* ir a la línea */
+"Ir a la línea" = "Go to Line";
+"Ir a la línea…" = "Go to Line…";
+"Línea" = "Line";
+"Posición" = "Position";
+"Ir a la línea (1–%lld)" = "Go to line (1–%lld)";
+"Ir a la posición (0–%lld)" = "Go to position (0–%lld)";
+
+/* renombrar */
+"Renombrar…" = "Rename…";
+"Renombrar archivo" = "Rename File";
+"Escribe el nombre nuevo. El archivo se mueve en disco; los cambios sin guardar no se pierden." = "Enter the new name. The file is moved on disk; unsaved changes are not lost.";
+"Ya existe un archivo llamado %@." = "A file named %@ already exists.";
+"Elige otro nombre; renombrar no sobrescribe archivos." = "Choose another name; renaming does not overwrite files.";
+"No se pudo renombrar %@." = "Could not rename %@.";
+"%@ no es un nombre de archivo válido." = "%@ is not a valid file name.";
+"El nombre no puede contener «/» ni ser «.» o «..». Renombrar cambia el nombre, no la carpeta." = "The name cannot contain “/” or be “.” or “..”. Renaming changes the name, not the folder.";
+
+/* about */
+"Acerca de GNote++" = "About GNote++";
+"Versión %@" = "Version %@";
+"Editor de texto para macOS, basado en el código de Notepad++." = "A text editor for macOS, based on the Notepad++ source.";
+"Gracias por utilizar GNote++" = "Thank you for using GNote++";
+"Puedes contribuir al desarrollo de mejoras donando en el siguiente enlace." = "You can support further development by donating at the link below.";
+"Apoyar el proyecto ☕" = "Support the project ☕";
+"Créditos y licencias" = "Credits and licenses";
+"GNote++ se distribuye bajo la GPL-3.0. Eso incluye el derecho a obtener, modificar y redistribuir su código fuente." = "GNote++ is distributed under the GPL-3.0, which includes the right to obtain, modify and redistribute its source code.";
+"Código fuente" = "Source code";
+"Texto de la licencia" = "License text";

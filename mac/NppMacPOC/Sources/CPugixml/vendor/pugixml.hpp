@@ -1,0 +1,1 @@
+../../../../../PowerEditor/src/pugixml/pugixml.hpp

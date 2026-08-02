@@ -1,18 +1,20 @@
 import Foundation
 
-/// Lista de archivos recientes (MRU), persistida en UserDefaults como rutas. La app no está
-/// sandboxeada (decisión de P4), así que no hace falta lidiar con security-scoped bookmarks.
-final class RecentFilesViewModel: ObservableObject {
+/// Lista MRU de rutas, persistida en UserDefaults. Se usa dos veces con claves distintas:
+/// archivos recientes y carpetas recientes. La app no está sandboxeada (decisión de P4),
+/// así que no hace falta lidiar con security-scoped bookmarks.
+final class RecentPathsViewModel: ObservableObject {
     @Published private(set) var urls: [URL] = []
     private let maxCount = 10
-    private let defaultsKey = "recentFiles"
+    private let defaultsKey: String
 
-    init() {
+    init(defaultsKey: String) {
+        self.defaultsKey = defaultsKey
         load()
     }
 
-    /// Descarta rutas que ya no existen en disco: un archivo borrado fuera de la app
-    /// no debe quedar de fantasma en el menú.
+    /// Descarta rutas que ya no existen en disco: un archivo o carpeta borrado fuera
+    /// de la app no debe quedar de fantasma en el menú.
     private func load() {
         let paths = UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []
         urls = paths
@@ -46,4 +48,11 @@ final class RecentFilesViewModel: ObservableObject {
     private func persist() {
         UserDefaults.standard.set(urls.map { $0.path }, forKey: defaultsKey)
     }
+}
+
+// Las claves se conservan tal cual estaban para no perder la lista que el usuario
+// ya tenía acumulada al actualizar.
+extension RecentPathsViewModel {
+    static func files() -> RecentPathsViewModel { RecentPathsViewModel(defaultsKey: "recentFiles") }
+    static func folders() -> RecentPathsViewModel { RecentPathsViewModel(defaultsKey: "recentFolders") }
 }

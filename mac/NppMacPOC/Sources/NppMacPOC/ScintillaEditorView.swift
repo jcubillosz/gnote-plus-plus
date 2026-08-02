@@ -8,6 +8,7 @@ struct ScintillaEditorView: NSViewRepresentable {
     let editor: ScintillaView
     @ObservedObject var statusBar: StatusBarViewModel
     var onContentChanged: (() -> Void)?
+    var onScrolled: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(statusBar: statusBar, editor: editor)
@@ -28,6 +29,7 @@ struct ScintillaEditorView: NSViewRepresentable {
     func updateNSView(_ container: NSView, context: Context) {
         context.coordinator.statusBar = statusBar
         context.coordinator.onContentChanged = onContentChanged
+        context.coordinator.onScrolled = onScrolled
         if editor.delegate !== context.coordinator {
             editor.delegate = context.coordinator
         }
@@ -35,14 +37,30 @@ struct ScintillaEditorView: NSViewRepresentable {
     }
 
     private func adopt(into container: NSView) {
-        guard editor.superview !== container else { return }
+        // Invalidar SIEMPRE, no solo al reparentar: en un cambio de pestaña normal el
+        // editor ya está en este mismo container, y SCI_SETDOCPOINTER cambia el contenido
+        // por debajo sin tocar geometría — si el frame resultante coincide con el actual,
+        // AppKit no dispara needsDisplay solo.
+        //
+        // Pero hacerlo SÍNCRONO acá no alcanza cuando el container es nuevo (toggle de
+        // preview, cambio entre Markdown y no-Markdown): en ese caso SwiftUI recién está
+        // creando este NSViewRepresentable y el container todavía no tiene ventana —
+        // needsDisplay en una vista sin ventana es un no-op que nadie vuelve a pedir una
+        // vez que la ventana la adopta. Por eso la invalidación va en el mismo async que
+        // ya usa el foco, después de que el container esté instalado de verdad.
+        guard editor.superview !== container else {
+            container.needsLayout = true
+            editor.needsDisplay = true
+            return
+        }
         editor.removeFromSuperview()
         editor.translatesAutoresizingMaskIntoConstraints = true
         container.addSubview(editor)
-        container.needsLayout = true
         // Al reinsertarse pierde el foco: sin esto hay que hacer clic en el editor
         // para poder escribir después de abrir o cerrar la vista previa.
         DispatchQueue.main.async {
+            container.needsLayout = true
+            editor.needsDisplay = true
             container.window?.makeFirstResponder(editor)
         }
     }
@@ -56,6 +74,8 @@ struct ScintillaEditorView: NSViewRepresentable {
         weak var editor: ScintillaView?
         /// Avisa a la preview de Markdown que el contenido cambió (no cursor/selección).
         var onContentChanged: (() -> Void)?
+        /// Avisa que cambió el scroll vertical, para sincronizar la preview de Markdown.
+        var onScrolled: (() -> Void)?
 
         init(statusBar: StatusBarViewModel, editor: ScintillaView?) {
             self.statusBar = statusBar
@@ -75,6 +95,9 @@ struct ScintillaEditorView: NSViewRepresentable {
             // texto; filtrar por SC_UPDATE_CONTENT evita refrescar la preview de más.
             if Int(notification.pointee.updated) & SC_UPDATE_CONTENT != 0 {
                 onContentChanged?()
+            }
+            if Int(notification.pointee.updated) & SC_UPDATE_V_SCROLL != 0 {
+                onScrolled?()
             }
         }
 

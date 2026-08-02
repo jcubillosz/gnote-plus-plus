@@ -4,6 +4,7 @@ import Scintilla
 // no inventar números nuevos sin volver a confirmar ahí.
 let SCI_CLEARALL: UInt32 = 2004
 let SCI_GETLENGTH: UInt32 = 2006
+let SCI_GETSTYLEAT: UInt32 = 2010
 let SCI_GETCURRENTPOS: UInt32 = 2008
 let SCI_SETSAVEPOINT: UInt32 = 2014
 let SCI_SETVIEWWS: UInt32 = 2021
@@ -24,6 +25,7 @@ let SCI_GETSELECTIONSTART: UInt32 = 2143
 let SCI_GETSELECTIONEND: UInt32 = 2145
 let SCI_GETMODIFY: UInt32 = 2159
 let SCI_LINEFROMPOSITION: UInt32 = 2166
+let SCI_POSITIONFROMLINE: UInt32 = 2167
 let SCI_GOTOLINE: UInt32 = 2024
 let SCI_GOTOPOS: UInt32 = 2025
 let SCI_GETLINECOUNT: UInt32 = 2154
@@ -51,6 +53,7 @@ let SCI_SEARCHINTARGET: UInt32 = 2197
 let SCI_SETSEARCHFLAGS: UInt32 = 2198
 let SCI_SETEOLMODE: UInt32 = 2031
 let SCI_SETSEL: UInt32 = 2160
+let SCI_REPLACESEL: UInt32 = 2170
 let SCI_SCROLLCARET: UInt32 = 2169
 let SCI_SETINDICATORCURRENT: UInt32 = 2500
 let SCI_INDICATORFILLRANGE: UInt32 = 2504
@@ -77,6 +80,11 @@ let INDIC_STRAIGHTBOX: Int = 8
 /// Flag de SCNotification.updated: el cambio de UI incluyó cambio de contenido (no solo
 /// caret/scroll/selección). Usado para filtrar cuándo refrescar la preview de Markdown.
 let SC_UPDATE_CONTENT: Int = 0x1
+/// Flag de SCNotification.updated: cambió la posición de scroll vertical. Usado para
+/// sincronizar el scroll de la vista previa de Markdown con el editor.
+let SC_UPDATE_V_SCROLL: Int = 0x4
+let SCI_GETFIRSTVISIBLELINE: UInt32 = 2152
+let SCI_LINESONSCREEN: UInt32 = 2370
 /// Índice de indicador dedicado a highlight de búsqueda. Los indicadores 0-7 pueden estar
 /// en uso por lexers/estilos; 9 está libre y fuera del rango típico usado por Scintilla/Lexilla.
 let INDICATOR_FIND_HIGHLIGHT: Int = 9

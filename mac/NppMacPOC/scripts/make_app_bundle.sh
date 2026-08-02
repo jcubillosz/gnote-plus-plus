@@ -17,6 +17,17 @@ echo "==> swift build -c $CONFIG"
 
 echo "==> Armando $APP_DIR"
 rm -rf "$APP_DIR"
+
+# Bundles de nombres anteriores: si quedan, es facilísimo abrir el equivocado y
+# ver una versión vieja sin entender por qué (pasó con NppMacPOC.app tras el
+# rebrand: mostraba 0.1.0 y sin ventana About).
+for stale in "$ROOT"/.build/*.app; do
+  [ -e "$stale" ] || continue
+  if [ "$stale" != "$APP_DIR" ]; then
+    echo "==> Eliminando bundle obsoleto: $(basename "$stale")"
+    rm -rf "$stale"
+  fi
+done
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$APP_DIR/Contents/Frameworks"
 
 cp "$BUILD_DIR/NppMacPOC" "$APP_DIR/Contents/MacOS/NppMacPOC"

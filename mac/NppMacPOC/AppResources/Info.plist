@@ -44,5 +44,27 @@
 	<string>GNote++. Basado en Notepad++ (GPL-3.0) de Don Ho, Scintilla/Lexilla (HPND) de Neil Hodgson, uchardet (MPL-1.1), pugixml (MIT) y cmark-gfm (BSD-2). Ver LICENSE.</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.developer-tools</string>
+	<!-- Alternate, no Owner: GNote++ no es dueña de estos formatos. Reclamarlos como
+	     Owner pelearía con Xcode/TextEdit por el default del sistema para .txt/.json/etc. -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.plain-text</string>
+				<string>net.daringfireball.markdown</string>
+				<string>public.source-code</string>
+				<string>public.shell-script</string>
+				<string>public.python-script</string>
+				<string>public.json</string>
+				<string>public.xml</string>
+				<string>public.yaml</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

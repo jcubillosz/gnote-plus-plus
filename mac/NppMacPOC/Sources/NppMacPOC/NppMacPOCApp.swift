@@ -1,17 +1,34 @@
 import SwiftUI
 import AppKit
 import Scintilla
+import UniformTypeIdentifiers
+
+/// Recibe application(_:open:) de LaunchServices ("Abrir con" del Finder, doble clic
+/// en un tipo registrado en CFBundleDocumentTypes) y lo traduce a tabs.open(url:).
+/// Sin esto, registrar los tipos en Info.plist es una promesa vacía: la app aparecería
+/// en "Abrir con" pero elegirla no abriría nada.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    var tabs: TabsViewModel?
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            tabs?.open(url: url)
+        }
+    }
+}
 
 @main
 struct NppMacPOCApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     private let editor: ScintillaView
     @StateObject private var preferences: EditorPreferences
     @StateObject private var tabs: TabsViewModel
     @StateObject private var fileTree = FileTreeViewModel()
     // Sin default: se construye en init() y se comparte con TabsViewModel. Un
-    // `= RecentFilesViewModel()` acá crearía una segunda instancia que corre load()
+    // `= RecentPathsViewModel.files()` acá crearía una segunda instancia que corre load()
     // y se descarta, y dejaría dos listas divergentes si alguien borra la línea del init.
-    @StateObject private var recentFiles: RecentFilesViewModel
+    @StateObject private var recentFiles: RecentPathsViewModel
+    @StateObject private var recentFolders: RecentPathsViewModel
 
     init() {
         let editor = ScintillaView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
@@ -38,18 +55,21 @@ struct NppMacPOCApp: App {
         _ = ScintillaView.directCall(editor, message: SCI_INDICSETUNDER, wParam: uptr_t(INDICATOR_FIND_CURRENT), lParam: 1)
 
         let prefs = EditorPreferences()
-        let recents = RecentFilesViewModel()
+        let recents = RecentPathsViewModel.files()
+        let recentDirs = RecentPathsViewModel.folders()
         _preferences = StateObject(wrappedValue: prefs)
         _recentFiles = StateObject(wrappedValue: recents)
+        _recentFolders = StateObject(wrappedValue: recentDirs)
         _tabs = StateObject(wrappedValue: TabsViewModel(editor: editor, preferences: prefs, recentFiles: recents))
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView(tabs: tabs, fileTree: fileTree)
+            ContentView(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preferences: preferences)
+                .onAppear { appDelegate.tabs = tabs }
         }
         .commands {
-            AppCommands(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, preview: tabs.preview, preferences: preferences)
+            AppCommands(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preview: tabs.preview, preferences: preferences)
         }
 
         Settings {
@@ -70,10 +90,13 @@ struct AppCommands: Commands {
 
     @ObservedObject var tabs: TabsViewModel
     @ObservedObject var fileTree: FileTreeViewModel
-    // RecentFilesViewModel vive anidado dentro de TabsViewModel, pero un ObservableObject
+    // RecentPathsViewModel vive anidado dentro de TabsViewModel, pero un ObservableObject
     // anidado no reenvía objectWillChange al padre: hay que observarlo directo acá para
     // que el menú se refresque cuando cambian los recientes.
-    @ObservedObject var recentFiles: RecentFilesViewModel
+    @ObservedObject var recentFiles: RecentPathsViewModel
+    // Las carpetas recientes son otra instancia y otro ObservableObject: necesita su
+    // propia suscripción o el menú no se refresca al abrir una carpeta.
+    @ObservedObject var recentFolders: RecentPathsViewModel
     // Mismo motivo: el check del toggle de la preview depende de preview.isVisible, que
     // vive en un ObservableObject anidado y no publica a través de `tabs`.
     @ObservedObject var preview: MarkdownPreviewViewModel
@@ -83,6 +106,10 @@ struct AppCommands: Commands {
 
     private let commonEncodings = ["UTF-8", "UTF-16LE", "UTF-16BE", "ISO-8859-1", "Windows-1252"]
 
+    private var actions: DocumentActions {
+        DocumentActions(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preferences: preferences)
+    }
+
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
             Button(L("Acerca de GNote++")) { openWindow(id: aboutWindowID) }
@@ -91,9 +118,9 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button(L("Nuevo")) { tabs.newDocument() }
                 .keyboardShortcut("n", modifiers: .command)
-            Button(L("Abrir archivo…")) { openFile() }
+            Button(L("Abrir archivo…")) { actions.openFile() }
                 .keyboardShortcut("o", modifiers: .command)
-            Button(L("Abrir carpeta…")) { openFolder() }
+            Button(L("Abrir carpeta…")) { actions.openFolder() }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
             Menu(L("Abrir recientes")) {
                 ForEach(recentFiles.urls, id: \.self) { url in
@@ -106,6 +133,20 @@ struct AppCommands: Commands {
                 Button(L("Vaciar lista de recientes")) { recentFiles.clear() }
             }
             .disabled(recentFiles.urls.isEmpty)
+            Menu(L("Abrir carpetas recientes")) {
+                ForEach(recentFolders.urls, id: \.self) { url in
+                    // add() ademas de openFolder: sin esto, elegir una carpeta del menu
+                    // no la sube al tope y la lista deja de reflejar el uso real.
+                    Button(url.lastPathComponent) {
+                        fileTree.openFolder(url)
+                        recentFolders.add(url)
+                    }
+                    .help(url.path)
+                }
+                Divider()
+                Button(L("Vaciar lista de carpetas")) { recentFolders.clear() }
+            }
+            .disabled(recentFolders.urls.isEmpty)
             Divider()
             Button(L("Cerrar pestaña")) {
                 if let index = tabs.activeIndex { tabs.close(at: index) }
@@ -120,6 +161,17 @@ struct AppCommands: Commands {
                 .disabled(tabs.activeIndex == nil)
             Button(L("Renombrar…")) { tabs.renameActive() }
                 .disabled(tabs.activeDocument?.url == nil)
+            Divider()
+            Button(L("Imprimir…")) { actions.printDocument() }
+                .keyboardShortcut("p", modifiers: .command)
+                .disabled(tabs.activeIndex == nil)
+            if preview.isVisible, tabs.activeDocumentIsMarkdown {
+                Button(L("Imprimir vista previa…")) { actions.printMarkdownPreview() }
+            }
+            Button(L("Exportar a HTML…")) { actions.export(asPDF: false) }
+                .disabled(tabs.activeIndex == nil)
+            Button(L("Exportar a PDF…")) { actions.export(asPDF: true) }
+                .disabled(tabs.activeIndex == nil)
         }
 
         CommandGroup(after: .textEditing) {
@@ -196,23 +248,4 @@ struct AppCommands: Commands {
         }
     }
 
-    private func openFile() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url {
-            tabs.open(url: url)
-        }
-    }
-
-    private func openFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url {
-            fileTree.openFolder(url)
-        }
-    }
 }

@@ -48,11 +48,11 @@ final class TabsViewModel: ObservableObject {
     let statusBar = StatusBarViewModel()
     let find = FindViewModel()
     let preview = MarkdownPreviewViewModel()
-    let recentFiles: RecentFilesViewModel
+    let recentFiles: RecentPathsViewModel
     private(set) var currentTheme: EditorTheme = .light
     private var untitledCounter = 0
 
-    init(editor: ScintillaView, preferences: EditorPreferences, recentFiles: RecentFilesViewModel) {
+    init(editor: ScintillaView, preferences: EditorPreferences, recentFiles: RecentPathsViewModel) {
         self.editor = editor
         self.preferences = preferences
         self.recentFiles = recentFiles

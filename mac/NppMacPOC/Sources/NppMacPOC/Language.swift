@@ -78,6 +78,16 @@ private func hexRRGGBBToScintillaBGR(_ hex: String) -> sptr_t? {
     return sptr_t((b << 16) | (g << 8) | r)
 }
 
+/// Inversa de la anterior: de 0x00BBGGRR a "#rrggbb" para CSS. Van juntas a propósito —
+/// separarlas invita a que una se corrija y la otra no.
+func scintillaBGRToCSSHex(_ bgr: sptr_t) -> String {
+    let value = UInt32(truncatingIfNeeded: bgr)
+    let b = (value >> 16) & 0xFF
+    let g = (value >> 8) & 0xFF
+    let r = value & 0xFF
+    return String(format: "#%02x%02x%02x", r, g, b)
+}
+
 private let langsXmlPath: String = Bundle.module.url(forResource: "langs.model", withExtension: "xml")!.path
 // Overlay propio: lenguajes que Notepad++ no define (ver langs.mac-extra.xml). Se
 // consulta después de langsXmlPath, en cascada — upstream siempre gana si define algo.

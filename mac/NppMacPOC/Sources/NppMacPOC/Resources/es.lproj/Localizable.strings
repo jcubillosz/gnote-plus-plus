@@ -102,3 +102,16 @@
 "GNote++ se distribuye bajo la GPL-3.0. Eso incluye el derecho a obtener, modificar y redistribuir su código fuente." = "GNote++ se distribuye bajo la GPL-3.0. Eso incluye el derecho a obtener, modificar y redistribuir su código fuente.";
 "Código fuente" = "Código fuente";
 "Texto de la licencia" = "Texto de la licencia";
+
+/* carpetas recientes */
+"Abrir carpetas recientes" = "Abrir carpetas recientes";
+"Vaciar lista de carpetas" = "Vaciar lista de carpetas";
+
+/* imprimir y exportar */
+"Imprimir…" = "Imprimir…";
+"Imprimir vista previa…" = "Imprimir vista previa…";
+"Exportar a HTML…" = "Exportar a HTML…";
+"Exportar a PDF…" = "Exportar a PDF…";
+"No se pudo imprimir el documento." = "No se pudo imprimir el documento.";
+"No se pudo preparar el documento para imprimir." = "No se pudo preparar el documento para imprimir.";
+"No se pudo escribir el PDF en la ubicación elegida." = "No se pudo escribir el PDF en la ubicación elegida.";

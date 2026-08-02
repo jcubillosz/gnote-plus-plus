@@ -9,6 +9,12 @@ import Scintilla
 /// no se reenvía desde el padre).
 final class MarkdownPreviewViewModel: NSObject, ObservableObject {
     @Published var isVisible = false
+    // Toggle expuesto por la toolbar. La sincronización real de scroll editor→preview
+    // es un paso aparte (SCN_UPDATEUI + SC_UPDATE_V_SCROLL); acá solo persiste la
+    // preferencia del usuario.
+    @Published var syncScroll: Bool {
+        didSet { UserDefaults.standard.set(syncScroll, forKey: "preview.syncScroll") }
+    }
 
     /// Creado una sola vez acá, no en el NSViewRepresentable: SwiftUI recrea structs
     /// a cada render, y un WebView nuevo por render sería un proceso de contenido
@@ -18,6 +24,7 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
     private var pendingRefresh: DispatchWorkItem?
 
     override init() {
+        self.syncScroll = UserDefaults.standard.object(forKey: "preview.syncScroll") as? Bool ?? true
         let config = WKWebViewConfiguration()
         // `setURLSchemeHandler` lanza una excepción de Objective-C si el mismo
         // esquema se registra dos veces en la misma config: se registra acá, una
@@ -49,6 +56,44 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
         pendingRefresh?.cancel()
         pendingRefresh = nil
     }
+
+    /// Scroll proporcional (no por anclas): fraction = primera línea visible / líneas
+    /// totales desplazables. Una tabla larga o una imagen grande desalinean las dos
+    /// mitades — mapear línea de origen a elemento renderizado exigiría instrumentar
+    /// el renderer de cmark-gfm con data-line, y es su propio paso, no éste.
+    ///
+    /// Throttle a ~50ms cancelando el work item pendiente: sin esto cada notch de la
+    /// rueda dispara un evaluateJavaScript (mismo bug que tuvo el debounce de 300ms de
+    /// refreshNow, corregido para cambio de pestaña / close(at:)).
+    func scheduleScrollSync(editor: ScintillaView) {
+        guard isVisible, syncScroll else { return }
+        pendingScrollSync?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            self?.syncScrollNow(editor: editor)
+        }
+        pendingScrollSync = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: item)
+    }
+
+    /// Cancela el sync de scroll pendiente sin ejecutarlo — al cambiar de pestaña o
+    /// cerrar la preview, un work item viejo no debe mover la preview del documento nuevo.
+    func cancelPendingScrollSync() {
+        pendingScrollSync?.cancel()
+        pendingScrollSync = nil
+    }
+
+    private func syncScrollNow(editor: ScintillaView) {
+        let firstVisible = ScintillaView.directCall(editor, message: SCI_GETFIRSTVISIBLELINE, wParam: 0, lParam: 0)
+        let linesOnScreen = ScintillaView.directCall(editor, message: SCI_LINESONSCREEN, wParam: 0, lParam: 0)
+        let lineCount = ScintillaView.directCall(editor, message: SCI_GETLINECOUNT, wParam: 0, lParam: 0)
+        let denominator = max(1, Int(lineCount) - Int(linesOnScreen))
+        let fraction = Double(firstVisible) / Double(denominator)
+        webView.evaluateJavaScript(
+            "window.scrollTo(0, \(fraction) * (document.body.scrollHeight - window.innerHeight))"
+        )
+    }
+
+    private var pendingScrollSync: DispatchWorkItem?
 
     func refreshNow(editor: ScintillaView, document: Document, theme: MarkdownTheme) {
         // Un refresh pendiente quedó agendado con el documento de ANTES: si llegara a

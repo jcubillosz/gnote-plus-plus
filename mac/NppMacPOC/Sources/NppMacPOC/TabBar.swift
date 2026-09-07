@@ -10,6 +10,7 @@ struct TabBarView: View {
                     TabButton(
                         title: document.displayName,
                         isActive: index == tabs.activeIndex,
+                        isDirty: document.isDirty,
                         onSelect: { tabs.activate(at: index) },
                         onClose: { tabs.close(at: index) }
                     )
@@ -24,6 +25,7 @@ struct TabBarView: View {
 private struct TabButton: View {
     let title: String
     let isActive: Bool
+    let isDirty: Bool
     let onSelect: () -> Void
     let onClose: () -> Void
 
@@ -34,6 +36,11 @@ private struct TabButton: View {
             Text(title)
                 .lineLimit(1)
                 .font(.system(size: 12))
+            if isDirty {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 6, height: 6)
+            }
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .bold))

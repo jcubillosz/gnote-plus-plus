@@ -10,7 +10,7 @@ enum EditorTheme {
     private var bundledResourceName: String {
         switch self {
         case .light: return "stylers.model"
-        case .dark: return "DarkModeDefault"
+        case .dark: return "VSCodeDarkPlus"
         }
     }
 

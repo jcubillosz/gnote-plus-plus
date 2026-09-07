@@ -176,6 +176,14 @@ void ColorizeMarkdownDoc(Sci_PositionU startPos, Sci_Position length, int initSt
     //  Set to 1 to highlight all ATX header text.
     const bool headerEOLFill = styler.GetPropertyInt("lexer.markdown.header.eolfill", 0) == 1;
 
+    // property lexer.markdown.blockquote.eolfill
+    //  Set to 1 to highlight the whole blockquote line, not just the ">" marker.
+    const bool blockquoteEOLFill = styler.GetPropertyInt("lexer.markdown.blockquote.eolfill", 0) == 1;
+
+    // property lexer.markdown.list.eolfill
+    //  Set to 1 to highlight the whole list item line, not just its marker.
+    const bool listEOLFill = styler.GetPropertyInt("lexer.markdown.list.eolfill", 0) == 1;
+
     StyleContext sc(startPos, static_cast<Sci_PositionU>(length), initStyle, styler);
 
     while (sc.More()) {
@@ -185,9 +193,22 @@ void ColorizeMarkdownDoc(Sci_PositionU startPos, Sci_Position length, int initSt
             continue;
         }
 
-        // A blockquotes resets the line semantics
-        if (sc.state == SCE_MARKDOWN_BLOCKQUOTE)
-            sc.SetState(SCE_MARKDOWN_LINE_BEGIN);
+        // A blockquotes resets the line semantics, unless blockquoteEOLFill asks to
+        // keep the whole line highlighted as blockquote until the newline.
+        if (sc.state == SCE_MARKDOWN_BLOCKQUOTE) {
+            if (blockquoteEOLFill) {
+                if (IsNewline(sc.ch))
+                    sc.SetState(SCE_MARKDOWN_LINE_BEGIN);
+            } else {
+                sc.SetState(SCE_MARKDOWN_LINE_BEGIN);
+            }
+        }
+
+        // List items stay highlighted until the newline when listEOLFill is set.
+        if ((sc.state == SCE_MARKDOWN_ULIST_ITEM || sc.state == SCE_MARKDOWN_OLIST_ITEM) && listEOLFill) {
+            if (IsNewline(sc.ch))
+                sc.SetState(SCE_MARKDOWN_LINE_BEGIN);
+        }
 
         // Conditional state-based actions
         if (sc.state == SCE_MARKDOWN_CODE2) {
@@ -371,7 +392,10 @@ void ColorizeMarkdownDoc(Sci_PositionU startPos, Sci_Position length, int initSt
             // Unordered list
             else if ((sc.ch == '-' || sc.ch == '*' || sc.ch == '+') && IsASpaceOrTab(sc.chNext)) {
                 sc.SetState(SCE_MARKDOWN_ULIST_ITEM);
-                sc.ForwardSetState(SCE_MARKDOWN_DEFAULT);
+                if (listEOLFill)
+                    sc.Forward();
+                else
+                    sc.ForwardSetState(SCE_MARKDOWN_DEFAULT);
             }
             // Ordered list
             else if (IsADigit(sc.ch)) {
@@ -382,7 +406,8 @@ void ColorizeMarkdownDoc(Sci_PositionU startPos, Sci_Position length, int initSt
                         IsASpaceOrTab(sc.GetRelative(digitCount + 1))) {
                     sc.SetState(SCE_MARKDOWN_OLIST_ITEM);
                     sc.Forward(digitCount + 1);
-                    sc.SetState(SCE_MARKDOWN_DEFAULT);
+                    if (!listEOLFill)
+                        sc.SetState(SCE_MARKDOWN_DEFAULT);
                 } else {
                     // a textual number at the margin should be plain text
                     sc.SetState(SCE_MARKDOWN_DEFAULT);
@@ -392,9 +417,13 @@ void ColorizeMarkdownDoc(Sci_PositionU startPos, Sci_Position length, int initSt
             else if (sc.ch == '#' && sc.chNext == '.' && IsASpaceOrTab(sc.GetRelative(2))) {
                 sc.SetState(SCE_MARKDOWN_OLIST_ITEM);
                 sc.Forward(2);
-                sc.SetState(SCE_MARKDOWN_DEFAULT);
+                if (!listEOLFill)
+                    sc.SetState(SCE_MARKDOWN_DEFAULT);
             }
-            else if (sc.ch != ' ' || precharCount > 2)
+            // El umbral original (>2) descartaba el marcador de listas anidadas
+            // ("    - item" con 4+ espacios de indentación) antes de llegar al "-".
+            // Se sube para tolerar un par de niveles de anidación.
+            else if (sc.ch != ' ' || precharCount > 16)
                 sc.SetState(SCE_MARKDOWN_DEFAULT);
             else
                 ++precharCount;

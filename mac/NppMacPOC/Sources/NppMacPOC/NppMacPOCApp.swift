@@ -14,8 +14,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             tabs?.open(url: url)
         }
+        bringMainWindowToFront()
+    }
+
+    /// El "Abrir con" del Finder puede llegar con la app en background o con su ventana
+    /// minimizada/oculta: sin esto el archivo se abre en una pestaña que nadie ve.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        bringMainWindowToFront()
+        return true
+    }
+
+    private func bringMainWindowToFront() {
+        NSApp.activate(ignoringOtherApps: true)
+        // La ventana About también es una escena: buscar por identifier, no tomar la primera.
+        let main = NSApp.windows.first { $0.identifier?.rawValue.contains(mainWindowID) == true }
+            ?? NSApp.windows.first { $0.identifier?.rawValue.contains(aboutWindowID) != true }
+        main?.deminiaturize(nil)
+        main?.makeKeyAndOrderFront(nil)
     }
 }
+
+let mainWindowID = "main"
 
 @main
 struct NppMacPOCApp: App {
@@ -61,10 +80,16 @@ struct NppMacPOCApp: App {
         _recentFiles = StateObject(wrappedValue: recents)
         _recentFolders = StateObject(wrappedValue: recentDirs)
         _tabs = StateObject(wrappedValue: TabsViewModel(editor: editor, preferences: prefs, recentFiles: recents))
+        DonationPrompt.registerFirstLaunchIfNeeded()
     }
 
     var body: some Scene {
-        WindowGroup {
+        // Window y no WindowGroup: el ScintillaView es UNA instancia compartida por toda
+        // la app (ver ScintillaEditorView). Con WindowGroup, abrir un archivo desde el
+        // Finder hacía que SwiftUI creara una segunda ventana, cuyo ScintillaEditorView
+        // reparentaba el editor compartido fuera de la primera — texto invisible, solo
+        // quedaba operando la preview de Markdown, y la selección se comportaba raro.
+        Window(L("GNote++"), id: mainWindowID) {
             ContentView(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preferences: preferences)
                 .onAppear { appDelegate.tabs = tabs }
         }

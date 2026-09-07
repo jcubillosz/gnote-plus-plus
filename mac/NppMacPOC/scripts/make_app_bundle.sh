@@ -41,8 +41,23 @@ else
   echo "==> AVISO: falta AppResources/GNotePP.icns, el .app queda con el ícono genérico"
 fi
 
-# Recurso de datos (langs.model.xml/stylers.model.xml) generado por SPM
+# Recurso de datos (langs.model.xml/stylers.model.xml) generado por SPM.
 cp -R "$BUILD_DIR/NppMacPOC_NppMacPOC.bundle" "$APP_DIR/Contents/Resources/"
+
+# langs.model.xml/stylers.model.xml/DarkModeDefault.xml llegan a este bundle
+# como symlinks a PowerEditor/ (fuente vendorizada) — y están rotos (apuntan
+# a mac/PowerEditor/..., un nivel de más; el real es <repo>/PowerEditor/...).
+# Un symlink roto/que escapa del .app es además "invalid destination for
+# symbolic link in bundle" para Gatekeeper/notarización (rechazo real
+# encontrado al notarizar). Se sobreescriben acá con el contenido real.
+REPO_ROOT="$(cd "$ROOT/../.." && pwd)"
+RES_BUNDLE="$APP_DIR/Contents/Resources/NppMacPOC_NppMacPOC.bundle"
+# rm primero: son symlinks (rotos), "cp -f" sobre un symlink escribe a través
+# de él en vez de reemplazarlo.
+rm -f "$RES_BUNDLE/langs.model.xml" "$RES_BUNDLE/stylers.model.xml" "$RES_BUNDLE/DarkModeDefault.xml"
+cp "$REPO_ROOT/PowerEditor/src/langs.model.xml" "$RES_BUNDLE/langs.model.xml"
+cp "$REPO_ROOT/PowerEditor/src/stylers.model.xml" "$RES_BUNDLE/stylers.model.xml"
+cp "$REPO_ROOT/PowerEditor/installer/themes/DarkModeDefault.xml" "$RES_BUNDLE/DarkModeDefault.xml"
 
 # Scintilla.framework vendorizado
 cp -R "$ROOT/Frameworks/Scintilla.framework" "$APP_DIR/Contents/Frameworks/"

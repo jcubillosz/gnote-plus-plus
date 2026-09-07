@@ -94,6 +94,7 @@ let package = Package(
                 .copy("Resources/langs.model.xml"),
                 .copy("Resources/stylers.model.xml"),
                 .copy("Resources/DarkModeDefault.xml"),
+                .copy("Resources/VSCodeDarkPlus.xml"),
                 .copy("Resources/langs.mac-extra.xml"),
                 .copy("Resources/stylers.mac-extra.light.xml"),
                 .copy("Resources/stylers.mac-extra.dark.xml"),

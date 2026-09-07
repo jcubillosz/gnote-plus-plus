@@ -17,6 +17,10 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     // Colapsado al iniciar: sin carpeta abierta, el panel solo ocupa espacio vacío.
     @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
+    // Se incrementa al clickear "Apoyar el proyecto" desde la toolbar para
+    // forzar que SwiftUI relea DonationPrompt.shouldShowInToolbar y oculte
+    // el botón sin esperar otro evento de estado.
+    @State private var donationPromptRefreshToken = 0
 
     init(tabs: TabsViewModel, fileTree: FileTreeViewModel, recentFiles: RecentPathsViewModel, recentFolders: RecentPathsViewModel, preferences: EditorPreferences) {
         self.tabs = tabs
@@ -67,6 +71,23 @@ struct ContentView: View {
                 .disabled(tabs.activeIndex == nil)
             }
 
+            // donationPromptRefreshToken no se lee acá, pero SwiftUI no
+            // recorta el toolbar de forma reactiva ante un simple UserDefaults
+            // — leerlo fuerza que este bloque se reevalúe tras markClicked().
+            if donationPromptRefreshToken >= 0, DonationPrompt.shouldShowInToolbar {
+                ToolbarItemGroup {
+                    Button {
+                        NSWorkspace.shared.open(donationURL)
+                        DonationPrompt.markClicked()
+                        donationPromptRefreshToken += 1
+                    } label: {
+                        Text("☕")
+                    }
+                    .help(L("Apoyar el proyecto"))
+                    .accessibilityLabel(L("Apoyar el proyecto"))
+                }
+            }
+
             if tabs.activeDocumentIsMarkdown {
                 ToolbarItemGroup {
                     Button {
@@ -89,10 +110,25 @@ struct ContentView: View {
                         Button(L("Título 1")) { insertMarkdownHeading(level: 1, editor: tabs.editor) }
                         Button(L("Título 2")) { insertMarkdownHeading(level: 2, editor: tabs.editor) }
                         Button(L("Título 3")) { insertMarkdownHeading(level: 3, editor: tabs.editor) }
+                        Divider()
+                        Button(L("Negrita")) { insertMarkdownBold(editor: tabs.editor) }
+                        Button(L("Cursiva")) { insertMarkdownItalic(editor: tabs.editor) }
+                        Button(L("Tachado")) { insertMarkdownStrikethrough(editor: tabs.editor) }
+                        Button(L("Código en línea")) { insertMarkdownInlineCode(editor: tabs.editor) }
                     } label: {
                         Image(systemName: "textformat.size")
                     }
                     .help(L("Insertar título"))
+
+                    Menu {
+                        Button(L("Lista con viñeta")) { insertMarkdownBulletList(editor: tabs.editor) }
+                        Button(L("Lista numerada")) { insertMarkdownNumberedList(editor: tabs.editor) }
+                        Button(L("Lista de tareas")) { insertMarkdownChecklist(editor: tabs.editor) }
+                        Button(L("Cita")) { insertMarkdownBlockquote(editor: tabs.editor) }
+                    } label: {
+                        Image(systemName: "list.bullet")
+                    }
+                    .help(L("Insertar lista o cita"))
 
                     Button {
                         insertMarkdownTable(editor: tabs.editor)
@@ -152,7 +188,7 @@ struct ContentView: View {
             ScintillaEditorView(
                 editor: tabs.editor,
                 statusBar: tabs.statusBar,
-                onContentChanged: { scheduleRefresh() },
+                onContentChanged: { scheduleRefresh(); tabs.markActiveDirty() },
                 onScrolled: { preview.scheduleScrollSync(editor: tabs.editor) }
             )
             .overlay(alignment: .top) {

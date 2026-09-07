@@ -76,6 +76,7 @@ struct AboutView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Button(L("Apoyar el proyecto ☕")) {
                 NSWorkspace.shared.open(donationURL)
+                DonationPrompt.markClicked()
             }
             .controlSize(.large)
         }

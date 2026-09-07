@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App fuera de sandbox (distribución directa, no App Store): sin entitlements
+	     de sandbox. Este plist vacío es el mínimo que exige el hardened runtime
+	     para poder notarizar. Si en el futuro se sandboxea la app, acá van
+	     com.apple.security.app-sandbox + los file-access entitlements. -->
+</dict>
+</plist>

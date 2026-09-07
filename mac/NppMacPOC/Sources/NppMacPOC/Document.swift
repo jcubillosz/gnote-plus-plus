@@ -246,6 +246,18 @@ final class TabsViewModel: ObservableObject {
         document.isDirty = ScintillaView.directCall(editor, message: SCI_GETMODIFY, wParam: 0, lParam: 0) != 0
     }
 
+    /// Se llama desde el callback SC_UPDATE_CONTENT de Scintilla (vía ContentView) cada
+    /// vez que el texto cambia en la pestaña activa. A diferencia de
+    /// syncDirtyFlagOfActiveDocument() (que solo se ejecuta al cambiar/cerrar pestaña),
+    /// esto marca el punto de "sin guardar" en tiempo real mientras se escribe.
+    func markActiveDirty() {
+        guard let document = activeDocument, !document.isDirty else { return }
+        document.isDirty = true
+        // Document es una clase dentro de un array @Published: mutarle isDirty no
+        // republica nada por sí solo, y el punto de la pestaña no aparecería.
+        objectWillChange.send()
+    }
+
     private func confirmDiscard(message: String) -> Bool {
         let alert = NSAlert()
         alert.messageText = message
@@ -375,6 +387,9 @@ final class TabsViewModel: ObservableObject {
             try data.write(to: url, options: .atomic)
             document.isDirty = false
             _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
+            // Mismo motivo que en markActiveDirty(): sin esto, el punto de la pestaña
+            // seguiría visible después de guardar hasta el próximo cambio de pestaña.
+            objectWillChange.send()
             return true
         } catch {
             presentAlert(

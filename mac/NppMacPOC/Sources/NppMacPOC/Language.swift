@@ -298,11 +298,33 @@ func languageProfile(byLanguageName langName: String, theme: EditorTheme) -> Lan
     return profile(forLangName: langName, keywords: rawKeywords(forLangName: langName), theme: theme)
 }
 
+private func setLexerProperty(_ editor: ScintillaView, _ key: String, _ value: String) {
+    key.withCString { keyCstr in
+        value.withCString { valCstr in
+            let keyBits: UInt = UInt(bitPattern: keyCstr)
+            let valBits: UInt = UInt(bitPattern: valCstr)
+            _ = ScintillaView.directCall(
+                editor, message: SCI_SETPROPERTY,
+                wParam: uptr_t(keyBits),
+                lParam: sptr_t(bitPattern: valBits)
+            )
+        }
+    }
+}
+
 func applyLanguage(_ editor: ScintillaView, profile: LanguageProfile) {
     let lexerPtr = Lexilla_CreateLexer(profile.lexerName)
     _ = ScintillaView.directCall(editor, message: SCI_SETILEXER, wParam: 0, lParam: sptr_t(bitPattern: lexerPtr))
 
     _ = ScintillaView.directCall(editor, message: SCI_STYLECLEARALL, wParam: 0, lParam: 0)
+
+    if profile.lexerName == "markdown" {
+        // Sin esto, el lexer de Markdown solo colorea el marcador (#, >, -, 1.) y deja
+        // el resto de la línea en estilo DEFAULT (ver LexMarkdown.cxx).
+        setLexerProperty(editor, "lexer.markdown.header.eolfill", "1")
+        setLexerProperty(editor, "lexer.markdown.blockquote.eolfill", "1")
+        setLexerProperty(editor, "lexer.markdown.list.eolfill", "1")
+    }
 
     for (index, text) in profile.keywords {
         text.withCString { cstr in

@@ -45,7 +45,8 @@ struct DocumentActions {
 
     func printMarkdownPreview() {
         guard let doc = documentHTML(rendered: true) else { return }
-        printHTML(doc.html, jobTitle: doc.title)
+        let baseURL = tabs.activeDocument?.url?.deletingLastPathComponent()
+        printMarkdownHTML(doc.html, baseURL: baseURL, jobTitle: doc.title)
     }
 
     func export(asPDF: Bool) {
@@ -64,11 +65,14 @@ struct DocumentActions {
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         if asPDF {
-            // Solo el camino coloreado (no-Markdown) fuerza el tamaño de impresión: el
-            // renderizado de Markdown tiene su propia jerarquía tipográfica (títulos más
-            // grandes que el cuerpo) y forzar un tamaño plano rompería esa jerarquía.
-            let bodyFontSize = tabs.activeDocumentIsMarkdown ? nil : printBodyFontSize(preferences: preferences)
-            if !savePDF(from: doc.html, to: url, jobTitle: doc.title, bodyFontSize: bodyFontSize) {
+            if tabs.activeDocumentIsMarkdown {
+                let baseURL = document.url?.deletingLastPathComponent()
+                saveMarkdownPDF(html: doc.html, baseURL: baseURL, to: url) { success in
+                    if !success {
+                        presentPrintError(detail: L("No se pudo escribir el PDF en la ubicación elegida."))
+                    }
+                }
+            } else if !savePDF(from: doc.html, to: url, jobTitle: doc.title, bodyFontSize: printBodyFontSize(preferences: preferences)) {
                 presentPrintError(detail: L("No se pudo escribir el PDF en la ubicación elegida."))
             }
         } else {

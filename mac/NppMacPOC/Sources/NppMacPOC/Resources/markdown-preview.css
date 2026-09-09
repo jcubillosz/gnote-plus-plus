@@ -11,7 +11,9 @@
   --md-border: #d1d9e0;
   --md-link: #0969da;
   --md-code-bg: #f6f8fa;
-  --md-quote-border: #d1d9e0;
+  --md-quote-border: #2e7d32;
+  --md-quote-bg: #eaf6ec;
+  --md-quote-fg: #2e7d32;
   --md-table-stripe: #f6f8fa;
   --md-mark-bg: #fff8c5;
 }
@@ -77,9 +79,10 @@ hr {
 
 blockquote {
   margin: 0 0 1em;
-  padding: 0 1em;
-  color: var(--md-muted);
-  border-left: 0.25em solid var(--md-quote-border);
+  padding: 0.6em 1em;
+  color: var(--md-quote-fg, var(--md-muted));
+  background: var(--md-quote-bg, transparent);
+  border-left: 0.35em solid var(--md-quote-border);
 }
 blockquote > :last-child { margin-bottom: 0; }
 
@@ -170,12 +173,8 @@ section.footnotes {
   color: var(--md-muted);
 }
 
-/* ---------- Impresión / export a PDF ---------- */
-
-@media print {
-  body { padding: 0; font-size: 11pt; }
-  /* Sin esto WebKit corta títulos y bloques de código a la mitad de página. */
-  h1, h2, h3, h4, h5, h6 { break-after: avoid; }
-  pre, blockquote, table, img { break-inside: avoid; }
-  a { color: inherit; text-decoration: underline; }
-}
+/* Impresión/export a PDF de Markdown: NO usa @media print — WKWebView.createPDF
+   (Printing.swift) renderiza en modo pantalla, nunca dispara esa media query. Las
+   reglas equivalentes se inyectan ahí como <style> normal (markdownPrintOverrideCSS),
+   pisando lo de arriba por orden de cascada. Margen de hoja: paginate() en
+   Printing.swift, no @page (ídem, ignorado por createPDF). */

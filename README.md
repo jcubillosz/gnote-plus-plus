@@ -11,6 +11,27 @@ la detección de codificación (uchardet) y las definiciones de lenguajes y tema
 
 ---
 
+## Descargar
+
+**[GNote++.dmg — v1.1.0](releases/v1.1.0/GNote++.dmg)** (también en
+[Releases](https://github.com/jcubillosz/gnote-plus-plus/releases/tag/v1.1.0)).
+Firmado con Developer ID y notarizado por Apple — se abre sin advertencias de
+Gatekeeper.
+
+### Novedades en 1.1.0
+
+- **Coloreado de sintaxis**: se corrige un bug que dejaba el editor sin
+  colorear (texto plano negro) en cualquier build hecho con `swift build`
+  fuera del `.app` empaquetado — afectaba a todos los lenguajes salvo
+  Markdown.
+- **Imprimir / exportar a PDF de Markdown**, reescrito: ahora usa el motor
+  real de WebKit en vez de un importador limitado, así que tablas, títulos y
+  bloques de código salen igual que en la vista previa. Paginación real
+  (corta entre párrafos/filas, no a mitad de renglón) y margen de hoja de
+  2cm.
+- Blockquote (`> texto`) con estética de nota: borde y texto verde, fondo
+  verde claro.
+
 ## Qué hace
 
 - **Editor Scintilla** con pestañas, árbol de archivos y temas claro y oscuro

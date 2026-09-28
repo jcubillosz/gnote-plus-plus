@@ -8,13 +8,32 @@ import Scintilla
 /// anidado en TabsViewModel, ContentView lo observa aparte porque objectWillChange
 /// no se reenvía desde el padre).
 final class MarkdownPreviewViewModel: NSObject, ObservableObject {
-    @Published var isVisible = false
+    /// Los tres modos de vista de un documento Markdown. `.editor` es el default: abrir
+    /// un .md no debe imponerle al usuario una vista previa que no pidió.
+    enum PreviewMode: String {
+        case editor, split, preview
+    }
+
+    /// Persistido para que el modo elegido sobreviva a relanzar la app (brief Task 7).
+    @Published var mode: PreviewMode {
+        didSet { UserDefaults.standard.set(mode.rawValue, forKey: "preview.mode") }
+    }
+
+    /// Solo lectura: `true` en `.split`/`.preview`. El código que antes escribía
+    /// `isVisible` ahora asigna `mode` directamente (toolbar, menú Vista).
+    var isVisible: Bool { mode != .editor }
+
     // Toggle expuesto por la toolbar. La sincronización real de scroll editor→preview
     // es un paso aparte (SCN_UPDATEUI + SC_UPDATE_V_SCROLL); acá solo persiste la
     // preferencia del usuario.
     @Published var syncScroll: Bool {
         didSet { UserDefaults.standard.set(syncScroll, forKey: "preview.syncScroll") }
     }
+
+    /// Callback hacia ContentView: doble-click en la preview resuelto a una línea de
+    /// origen (1-based). ContentView decide el cambio de modo y mueve el caret del editor
+    /// — este ViewModel no conoce a TabsViewModel/ScintillaView.
+    var onJumpToSourceLine: ((Int) -> Void)?
 
     /// Creado una sola vez acá, no en el NSViewRepresentable: SwiftUI recrea structs
     /// a cada render, y un WebView nuevo por render sería un proceso de contenido
@@ -24,6 +43,7 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
     private var pendingRefresh: DispatchWorkItem?
 
     override init() {
+        self.mode = UserDefaults.standard.string(forKey: "preview.mode").flatMap(PreviewMode.init(rawValue:)) ?? .editor
         self.syncScroll = UserDefaults.standard.object(forKey: "preview.syncScroll") as? Bool ?? true
         let config = WKWebViewConfiguration()
         // `setURLSchemeHandler` lanza una excepción de Objective-C si el mismo
@@ -36,6 +56,45 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
         webView = WKWebView(frame: .zero, configuration: config)
         super.init()
         webView.navigationDelegate = self
+
+        // Doble-click → saltar al fuente. `delaysPrimaryMouseButtonEvents = false`: sin
+        // esto AppKit retiene el primer click esperando ver si llega un segundo, y la
+        // selección de palabra del click simple en la preview queda con un delay perceptible.
+        let doubleClick = NSClickGestureRecognizer(target: self, action: #selector(handleDoubleClick(_:)))
+        doubleClick.numberOfClicksRequired = 2
+        doubleClick.delaysPrimaryMouseButtonEvents = false
+        webView.addGestureRecognizer(doubleClick)
+    }
+
+    /// `allowsContentJavaScript = false` bloquea el JS embebido en el HTML renderizado,
+    /// no las llamadas que la app misma hace vía evaluateJavaScript — por eso esto funciona
+    /// (verificado con un .app real, ver comentario de refreshNow).
+    @objc private func handleDoubleClick(_ recognizer: NSClickGestureRecognizer) {
+        guard mode != .editor else { return }
+        // WKWebView es flipped=true en macOS (origen arriba-izquierda), igual que el
+        // sistema de coordenadas CSS, así que location(in:) mapea directo a px de
+        // viewport sin invertir Y. pageZoom no lo toca esta app (queda en 1.0 salvo
+        // que se agregue zoom de usuario a futuro), pero se divide para no romper si
+        // eso cambia.
+        let point = recognizer.location(in: webView)
+        let zoom = webView.pageZoom
+        let x = point.x / zoom
+        let y = point.y / zoom
+        let js = "(function(){var e=document.elementFromPoint(\(x), \(y));e=e&&e.closest('[data-sourcepos]');return e?e.getAttribute('data-sourcepos'):null})()"
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
+            guard let self, let sourcepos = result as? String,
+                  let line = MarkdownPreviewViewModel.startLine(fromSourcepos: sourcepos) else { return }
+            self.onJumpToSourceLine?(line)
+        }
+    }
+
+    /// Parsea el `data-sourcepos` de cmark-gfm, formato `"L:C-L:C"` (línea:columna inicio -
+    /// línea:columna fin, ambos 1-based). Devuelve la línea de inicio.
+    static func startLine(fromSourcepos sourcepos: String) -> Int? {
+        guard let dashIndex = sourcepos.firstIndex(of: "-") else { return nil }
+        let start = sourcepos[sourcepos.startIndex..<dashIndex]
+        guard let colonIndex = start.firstIndex(of: ":") else { return nil }
+        return Int(start[start.startIndex..<colonIndex])
     }
 
     /// Debounce de 300 ms: cancela el work item pendiente antes de agendar uno nuevo.
@@ -112,6 +171,7 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
             markdown,
             title: document.displayName,
             theme: theme,
+            sourcePositions: true,
             imageSource: .previewScheme
         )
         handler.html = html

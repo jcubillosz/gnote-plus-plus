@@ -293,11 +293,11 @@ private func paginate(_ singlePagePDF: Data, pageSize: CGSize, margin: CGFloat, 
 /// margen de hoja ya lo pone paginate() con margin/clip en el PDF final — duplicarlo acá
 /// sumaría los dos y dejaría un margen lateral enorme.
 private let markdownPrintOverrideCSS = """
-body { padding: 0; font-size: 11pt; font-family: Helvetica, Arial, sans-serif; }
-h1 { font-size: 14pt; }
-h2 { font-size: 13pt; }
-h3 { font-size: 12.5pt; }
-h4, h5, h6 { font-size: 11pt; }
+body { padding: 0; font-size: 8pt; font-family: Helvetica, Arial, sans-serif; }
+h1 { font-size: 10pt; }
+h2 { font-size: 9.5pt; }
+h3 { font-size: 9pt; }
+h4, h5, h6 { font-size: 8pt; }
 table { display: table; width: 100%; overflow: visible; }
 h1, h2, h3, h4, h5, h6 { break-after: avoid; }
 pre, blockquote, table, img { break-inside: avoid; }

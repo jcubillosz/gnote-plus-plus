@@ -20,6 +20,16 @@
 "Números de línea" = "Line Numbers";
 "Mostrar espacios en blanco" = "Show Invisibles";
 "Vista previa de Markdown" = "Markdown Preview";
+"Modo de vista" = "View Mode";
+"Solo editor" = "Editor Only";
+"Dividida" = "Split";
+"Solo vista previa" = "Preview Only";
+"Alternar vista dividida" = "Toggle Split View";
+"Ortografía" = "Spelling";
+"Revisar ortografía" = "Check Spelling";
+"Español" = "Spanish";
+"Inglés" = "English";
+"Automático" = "Automatic";
 
 /* status bar */
 "Ln %lld, Col %lld" = "Ln %lld, Col %lld";
@@ -83,6 +93,7 @@
 
 /* renombrar */
 "Renombrar…" = "Rename…";
+"Renombrar" = "Rename";
 "Renombrar archivo" = "Rename File";
 "Escribe el nombre nuevo. El archivo se mueve en disco; los cambios sin guardar no se pierden." = "Enter the new name. The file is moved on disk; unsaved changes are not lost.";
 "Ya existe un archivo llamado %@." = "A file named %@ already exists.";
@@ -115,3 +126,24 @@
 "No se pudo imprimir el documento." = "Could not print the document.";
 "No se pudo preparar el documento para imprimir." = "The document could not be prepared for printing.";
 "No se pudo escribir el PDF en la ubicación elegida." = "The PDF could not be written to the chosen location.";
+
+/* bloqueo de edición */
+"Bloquear edición" = "Lock Editing";
+"Desbloquear edición" = "Unlock Editing";
+
+/* árbol de archivos */
+"Refrescar" = "Refresh";
+"Nuevo archivo" = "New File";
+"Nueva carpeta" = "New Folder";
+"Nuevo archivo aquí" = "New File Here";
+"sin título" = "untitled";
+"nueva carpeta" = "new folder";
+"No se pudo crear el archivo." = "Could not create the file.";
+"No se pudo escribir en %@." = "Could not write to %@.";
+"No se pudo crear la carpeta." = "Could not create the folder.";
+"Sin sugerencias" = "No suggestions";
+"Aprender palabra" = "Learn Word";
+"Ignorar" = "Ignore";
+"Cortar" = "Cut";
+"Copiar" = "Copy";
+"Pegar" = "Paste";

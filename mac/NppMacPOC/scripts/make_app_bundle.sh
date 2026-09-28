@@ -13,7 +13,14 @@ BUILD_DIR="$ROOT/.build/arm64-apple-macosx/$CONFIG"
 APP_DIR="$ROOT/.build/GNote++.app"
 
 echo "==> swift build -c $CONFIG"
-(cd "$ROOT" && swift build -c "$CONFIG")
+# --build-system native fuerza el layout clásico de SPM (.build/<triple>/<config>/),
+# que es el que este script lee más abajo (BUILD_DIR). Con el toolchain Swift 6.4+,
+# `swift build` sin flags usa el backend "swiftbuild" por defecto, que compila a
+# .build/out/Products/<Config>/ en su lugar — mismo binario, otra carpeta. Sin este
+# flag, este script podía copiar un binario de una corrida vieja que haya quedado en
+# BUILD_DIR (de una sesión anterior con --build-system native) en vez del recién
+# compilado, empaquetando una versión desactualizada de la app sin ningún error.
+(cd "$ROOT" && swift build -c "$CONFIG" --build-system native)
 
 echo "==> Armando $APP_DIR"
 rm -rf "$APP_DIR"

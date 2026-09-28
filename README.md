@@ -13,10 +13,32 @@ la detección de codificación (uchardet) y las definiciones de lenguajes y tema
 
 ## Descargar
 
-**[GNote++.dmg — v1.1.0](releases/v1.1.0/GNote++.dmg)** (también en
-[Releases](https://github.com/jcubillosz/gnote-plus-plus/releases/tag/v1.1.0)).
+**[GNote++.dmg — v1.2.0](releases/v1.2.0/GNote++.dmg)** (también en
+[Releases](https://github.com/jcubillosz/gnote-plus-plus/releases/tag/v1.2.0)).
 Firmado con Developer ID y notarizado por Apple — se abre sin advertencias de
 Gatekeeper.
+
+### Novedades en 1.2.0
+
+- **Bloqueo de edición** por documento (candado en la toolbar, ⌘⇧L): fondo
+  azul marino, solo lectura real, permite seleccionar y copiar. Útil para
+  información sensible que no querés arriesgar a modificar por error.
+- **Corrector ortográfico** en español e inglés (desactivado por defecto,
+  Editar ▸ Ortografía): subrayado ondulado, sugerencias, aprender e ignorar
+  palabras desde el menú contextual. En código solo revisa comentarios y
+  strings.
+- **Markdown**: tres modos de vista (editor / dividida / solo vista previa) y
+  doble-click en el render para saltar a la línea del fuente. Bloques de
+  código con etiqueta de lenguaje y coloreado de sintaxis en la vista previa
+  y la impresión. Letra de impresión ~30% más chica.
+- **Árbol de archivos**: crear archivos/carpetas y renombrar directamente
+  ahí (incluida la extensión), con refresco automático al detectar cambios
+  en disco.
+- Arrastrar archivos y carpetas desde Finder para abrirlos; se restaura la
+  sesión (pestañas, cursor, carpeta) al relanzar la app.
+- El punto de "sin guardar" ya no aparece al abrir un archivo sin
+  modificarlo, y cada pestaña recuerda su posición del cursor y su
+  selección al volver a ella.
 
 ### Novedades en 1.1.0
 

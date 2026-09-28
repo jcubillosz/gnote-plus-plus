@@ -9,12 +9,30 @@ import UniformTypeIdentifiers
 /// en "Abrir con" pero elegirla no abriría nada.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var tabs: TabsViewModel?
+    /// URLs de "Abrir con" del Finder que llegan durante el arranque en frío: AppKit puede
+    /// invocar application(_:open:) antes de que el restore de sesión (Task 13) corra, así
+    /// que se guardan acá y se consumen una sola vez desde ese restore. Después de
+    /// consumidas, cualquier "Abrir con" nuevo (app ya corriendo) se abre directo.
+    private(set) var pendingLaunchURLs: [URL] = []
+    private var didConsumeLaunchURLs = false
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls {
-            tabs?.open(url: url)
+        if didConsumeLaunchURLs {
+            for url in urls {
+                tabs?.open(url: url)
+            }
+        } else {
+            pendingLaunchURLs.append(contentsOf: urls)
         }
         bringMainWindowToFront()
+    }
+
+    /// Llamado una sola vez desde el restore de sesión al arranque.
+    func consumeLaunchURLs() -> [URL] {
+        didConsumeLaunchURLs = true
+        let urls = pendingLaunchURLs
+        pendingLaunchURLs = []
+        return urls
     }
 
     /// El "Abrir con" del Finder puede llegar con la app en background o con su ventana
@@ -32,6 +50,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main?.deminiaturize(nil)
         main?.makeKeyAndOrderFront(nil)
     }
+
+    /// Referencia al árbol de archivos para poder guardar su raíz al terminar (Task 13).
+    /// Igual que `tabs`, se setea desde el onAppear de la ventana principal.
+    var fileTree: FileTreeViewModel?
+
+    private var willTerminateObserver: NSObjectProtocol?
+
+    /// Registra el guardado de sesión al cerrar la app. Se llama una sola vez desde el
+    /// onAppear de la ventana principal, cuando ya existen `tabs` y `fileTree`.
+    func observeTerminationForSessionSave() {
+        guard willTerminateObserver == nil else { return }
+        willTerminateObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self, let tabs = self.tabs, let fileTree = self.fileTree else { return }
+            SessionStore.save(tabs: tabs, fileTree: fileTree)
+        }
+    }
 }
 
 let mainWindowID = "main"
@@ -48,6 +84,7 @@ struct NppMacPOCApp: App {
     // y se descarta, y dejaría dos listas divergentes si alguien borra la línea del init.
     @StateObject private var recentFiles: RecentPathsViewModel
     @StateObject private var recentFolders: RecentPathsViewModel
+    @State private var didRestoreSession = false
 
     init() {
         let editor = ScintillaView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
@@ -73,6 +110,13 @@ struct NppMacPOCApp: App {
         _ = ScintillaView.directCall(editor, message: SCI_INDICSETALPHA, wParam: uptr_t(INDICATOR_FIND_CURRENT), lParam: 120)
         _ = ScintillaView.directCall(editor, message: SCI_INDICSETUNDER, wParam: uptr_t(INDICATOR_FIND_CURRENT), lParam: 1)
 
+        // Indicador de corrector ortográfico (Task 10): squiggle rojo bajo el texto, mismo
+        // estilo visual que el corrector nativo de macOS en NSTextView. SCI_INDICSETUNDER lo
+        // dibuja bajo el texto para no interferir con la selección ni otros indicadores.
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETSTYLE, wParam: uptr_t(INDICATOR_SPELL), lParam: sptr_t(INDIC_SQUIGGLEPIXMAP))
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETFORE, wParam: uptr_t(INDICATOR_SPELL), lParam: 0x0000E0)
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETUNDER, wParam: uptr_t(INDICATOR_SPELL), lParam: 1)
+
         let prefs = EditorPreferences()
         let recents = RecentPathsViewModel.files()
         let recentDirs = RecentPathsViewModel.folders()
@@ -91,10 +135,22 @@ struct NppMacPOCApp: App {
         // quedaba operando la preview de Markdown, y la selección se comportaba raro.
         Window(L("GNote++"), id: mainWindowID) {
             ContentView(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preferences: preferences)
-                .onAppear { appDelegate.tabs = tabs }
+                .onAppear {
+                    appDelegate.tabs = tabs
+                    appDelegate.fileTree = fileTree
+                    appDelegate.observeTerminationForSessionSave()
+                    // Restauración de sesión (Task 13): solo la primera vez que aparece la
+                    // ventana principal — un onAppear repetido (ej. reabrir tras minimizar)
+                    // no debe reabrir todo de nuevo.
+                    if !didRestoreSession {
+                        didRestoreSession = true
+                        let actions = DocumentActions(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preferences: preferences)
+                        SessionStore.restore(tabs: tabs, fileTree: fileTree, actions: actions, finderURLs: appDelegate.consumeLaunchURLs())
+                    }
+                }
         }
         .commands {
-            AppCommands(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preview: tabs.preview, preferences: preferences)
+            AppCommands(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preview: tabs.preview, spellCheck: tabs.spellCheck, preferences: preferences)
         }
 
         Settings {
@@ -125,6 +181,9 @@ struct AppCommands: Commands {
     // Mismo motivo: el check del toggle de la preview depende de preview.isVisible, que
     // vive en un ObservableObject anidado y no publica a través de `tabs`.
     @ObservedObject var preview: MarkdownPreviewViewModel
+    // Idem: los checks del menú Ortografía (enabled/language) viven en otro
+    // ObservableObject anidado.
+    @ObservedObject var spellCheck: SpellCheckViewModel
     // Idem: los checks del menú Vista leen preferences.wordWrap/showLineNumbers/
     // showWhitespace, que viven en otro ObservableObject anidado.
     @ObservedObject var preferences: EditorPreferences
@@ -184,8 +243,13 @@ struct AppCommands: Commands {
             Button(L("Guardar como…")) { tabs.saveActiveAs() }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(tabs.activeIndex == nil)
-            Button(L("Renombrar…")) { tabs.renameActive() }
-                .disabled(tabs.activeDocument?.url == nil)
+            Button(L("Renombrar…")) {
+                tabs.renameActive()
+                // renameActive() no refresca el árbol por sí solo; el watcher lo haría
+                // igual en ~0.3s, pero el usuario espera ver el nombre nuevo al instante.
+                fileTree.refresh()
+            }
+            .disabled(tabs.activeDocument?.url == nil)
             Divider()
             Button(L("Imprimir…")) { actions.printDocument() }
                 .keyboardShortcut("p", modifiers: .command)
@@ -233,6 +297,36 @@ struct AppCommands: Commands {
             Button(L("Ir a la línea…")) { goToLine(editor: tabs.editor) }
                 .keyboardShortcut("l", modifiers: .command)
                 .disabled(tabs.activeIndex == nil)
+
+            Divider()
+            Toggle(L("Bloquear edición"), isOn: Binding(
+                get: { tabs.activeDocument?.isLocked ?? false },
+                // El valor nuevo lo decide toggleLockActive() (invierte lo que ya tenía el
+                // documento activo, no lo que llegó acá) — un Binding normal alcanza porque
+                // Toggle en un menú solo necesita algo que asignar para mostrar el checkmark.
+                set: { _ in tabs.toggleLockActive() }
+            ))
+            .keyboardShortcut("l", modifiers: [.command, .shift])
+            .disabled(tabs.activeIndex == nil)
+
+            Divider()
+            Menu(L("Ortografía")) {
+                Toggle(L("Revisar ortografía"), isOn: $spellCheck.enabled)
+                    .keyboardShortcut(";", modifiers: [.command, .shift])
+                Divider()
+                Toggle(L("Español"), isOn: Binding(
+                    get: { spellCheck.language == "es" },
+                    set: { if $0 { spellCheck.language = "es" } }
+                ))
+                Toggle(L("Inglés"), isOn: Binding(
+                    get: { spellCheck.language == "en" },
+                    set: { if $0 { spellCheck.language = "en" } }
+                ))
+                Toggle(L("Automático"), isOn: Binding(
+                    get: { spellCheck.language == "auto" },
+                    set: { if $0 { spellCheck.language = "auto" } }
+                ))
+            }
         }
 
         CommandMenu(L("Lenguaje")) {
@@ -249,7 +343,7 @@ struct AppCommands: Commands {
         CommandMenu(L("Codificación")) {
             ForEach(commonEncodings, id: \.self) { encoding in
                 Button(L("Recargar como \(encoding)")) { tabs.reload(activeDocumentWithEncoding: encoding) }
-                    .disabled(tabs.activeIndex == nil)
+                    .disabled(tabs.activeIndex == nil || tabs.activeDocument?.isLocked == true)
             }
         }
 
@@ -267,7 +361,29 @@ struct AppCommands: Commands {
                 set: { preferences.showWhitespace = $0; preferences.applyEditingOptions(to: tabs.editor) }
             ))
             Divider()
-            Toggle(L("Vista previa de Markdown"), isOn: $preview.isVisible)
+            Toggle(L("Solo editor"), isOn: Binding(
+                get: { preview.mode == .editor },
+                set: { if $0 { preview.mode = .editor } }
+            ))
+            .keyboardShortcut("1", modifiers: [.command, .option])
+            .disabled(!tabs.activeDocumentIsMarkdown)
+            Toggle(L("Dividida"), isOn: Binding(
+                get: { preview.mode == .split },
+                set: { if $0 { preview.mode = .split } }
+            ))
+            .keyboardShortcut("2", modifiers: [.command, .option])
+            .disabled(!tabs.activeDocumentIsMarkdown)
+            Toggle(L("Solo vista previa"), isOn: Binding(
+                get: { preview.mode == .preview },
+                set: { if $0 { preview.mode = .preview } }
+            ))
+            .keyboardShortcut("3", modifiers: [.command, .option])
+            .disabled(!tabs.activeDocumentIsMarkdown)
+            // ⌥⌘P conserva la función previa (Task 7 brief): alterna solo entre editor y
+            // dividida, sin pasar nunca a solo-vista-previa desde el atajo histórico.
+            Button(L("Alternar vista dividida")) {
+                preview.mode = preview.mode == .split ? .editor : .split
+            }
             .keyboardShortcut("p", modifiers: [.command, .option])
             .disabled(!tabs.activeDocumentIsMarkdown)
         }

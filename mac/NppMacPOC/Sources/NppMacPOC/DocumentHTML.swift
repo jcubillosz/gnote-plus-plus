@@ -55,7 +55,7 @@ func styledHTMLDocument(editor: ScintillaView, document: Document, preferences: 
 
 /// Recorre el texto agrupando caracteres consecutivos que comparten estilo y emite un
 /// `<span>` por grupo. Un span por carácter multiplicaría por diez el tamaño del HTML.
-private func styledHTMLBody(editor: ScintillaView, text: String, styles: [Int: StyleSpec]) -> String {
+func styledHTMLBody(editor: ScintillaView, text: String, styles: [Int: StyleSpec]) -> String {
     guard !text.isEmpty else { return "" }
 
     // Scintilla colorea de forma perezosa: una edición reinicia endStyled en ese punto y
@@ -99,7 +99,7 @@ private func styledHTMLBody(editor: ScintillaView, text: String, styles: [Int: S
     return html
 }
 
-private func span(for styleID: Int?, content: String, styles: [Int: StyleSpec]) -> String {
+func span(for styleID: Int?, content: String, styles: [Int: StyleSpec]) -> String {
     guard let styleID, let spec = styles[styleID] else { return content }
 
     var css = "color:\(scintillaBGRToCSSHex(spec.fore))"

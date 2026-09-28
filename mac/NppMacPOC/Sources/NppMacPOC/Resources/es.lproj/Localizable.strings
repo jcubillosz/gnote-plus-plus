@@ -20,6 +20,16 @@
 "Números de línea" = "Números de línea";
 "Mostrar espacios en blanco" = "Mostrar espacios en blanco";
 "Vista previa de Markdown" = "Vista previa de Markdown";
+"Modo de vista" = "Modo de vista";
+"Solo editor" = "Solo editor";
+"Dividida" = "Dividida";
+"Solo vista previa" = "Solo vista previa";
+"Alternar vista dividida" = "Alternar vista dividida";
+"Ortografía" = "Ortografía";
+"Revisar ortografía" = "Revisar ortografía";
+"Español" = "Español";
+"Inglés" = "Inglés";
+"Automático" = "Automático";
 
 /* status bar */
 "Ln %lld, Col %lld" = "Ln %lld, Col %lld";
@@ -83,6 +93,7 @@
 
 /* renombrar */
 "Renombrar…" = "Renombrar…";
+"Renombrar" = "Renombrar";
 "Renombrar archivo" = "Renombrar archivo";
 "Escribe el nombre nuevo. El archivo se mueve en disco; los cambios sin guardar no se pierden." = "Escribe el nombre nuevo. El archivo se mueve en disco; los cambios sin guardar no se pierden.";
 "Ya existe un archivo llamado %@." = "Ya existe un archivo llamado %@.";
@@ -115,3 +126,24 @@
 "No se pudo imprimir el documento." = "No se pudo imprimir el documento.";
 "No se pudo preparar el documento para imprimir." = "No se pudo preparar el documento para imprimir.";
 "No se pudo escribir el PDF en la ubicación elegida." = "No se pudo escribir el PDF en la ubicación elegida.";
+
+/* bloqueo de edición */
+"Bloquear edición" = "Bloquear edición";
+"Desbloquear edición" = "Desbloquear edición";
+
+/* árbol de archivos */
+"Refrescar" = "Refrescar";
+"Nuevo archivo" = "Nuevo archivo";
+"Nueva carpeta" = "Nueva carpeta";
+"Nuevo archivo aquí" = "Nuevo archivo aquí";
+"sin título" = "sin título";
+"nueva carpeta" = "nueva carpeta";
+"No se pudo crear el archivo." = "No se pudo crear el archivo.";
+"No se pudo escribir en %@." = "No se pudo escribir en %@.";
+"No se pudo crear la carpeta." = "No se pudo crear la carpeta.";
+"Sin sugerencias" = "Sin sugerencias";
+"Aprender palabra" = "Aprender palabra";
+"Ignorar" = "Ignorar";
+"Cortar" = "Cortar";
+"Copiar" = "Copiar";
+"Pegar" = "Pegar";

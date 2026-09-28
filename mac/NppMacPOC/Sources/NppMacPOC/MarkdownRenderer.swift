@@ -60,7 +60,13 @@ func renderMarkdownDocument(
     sourcePositions: Bool = false,
     imageSource: MarkdownImageSource = .file
 ) -> String {
-    let body = renderMarkdownFragment(markdown, sourcePositions: sourcePositions)
+    let fragment = renderMarkdownFragment(markdown, sourcePositions: sourcePositions)
+    // El coloreado usa un ScintillaView oculto, que es AppKit: solo main thread. Todos
+    // los llamadores (preview, imprimir, exportar) ya corren ahí; assumeIsolated lo
+    // verifica en runtime en vez de suponerlo.
+    let body = MainActor.assumeIsolated {
+        decorateFencedCodeBlocks(fragment, theme: theme == .dark ? EditorTheme.dark : .light)
+    }
 
     // `default-src 'none'` corta toda carga remota: sin esto una imagen remota
     // en el Markdown delata al lector (IP, hora de lectura) apenas abre el

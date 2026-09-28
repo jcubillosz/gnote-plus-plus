@@ -5,6 +5,9 @@ import Scintilla
 struct FindBarView: View {
     let editor: ScintillaView
     @ObservedObject var find: FindViewModel
+    /// Documento activo bloqueado: Reemplazar/Reemplazar todos quedan deshabilitados
+    /// (buscar y navegar entre matches sigue funcionando, no modifica el documento).
+    var isLocked: Bool = false
     @FocusState private var findFieldFocused: Bool
     @State private var pendingHighlight: DispatchWorkItem?
 
@@ -59,7 +62,9 @@ struct FindBarView: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(minWidth: 180)
                     Button(L("Reemplazar")) { replaceCurrent(editor: editor, find: find) }
+                        .disabled(isLocked)
                     Button(L("Reemplazar todos")) { replaceAll(editor: editor, find: find) }
+                        .disabled(isLocked)
                 }
             }
         }

@@ -1,5 +1,9 @@
 // swift-tools-version:5.9
 import PackageDescription
+import Foundation
+
+let packageDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+let frameworksDir = packageDir + "/Frameworks"
 
 let package = Package(
     name: "NppMacPOC",
@@ -104,11 +108,11 @@ let package = Package(
             ],
             swiftSettings: [
                 .interoperabilityMode(.Cxx),
-                .unsafeFlags(["-F", "Frameworks"])
+                .unsafeFlags(["-F", frameworksDir])
             ],
             linkerSettings: [
                 .unsafeFlags([
-                    "-F", "Frameworks",
+                    "-F", frameworksDir,
                     "-framework", "Scintilla",
                     "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../Frameworks"
                 ])

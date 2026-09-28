@@ -90,8 +90,75 @@ struct DocumentActions {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url {
-            fileTree.openFolder(url)
-            recentFolders.add(url)
+            openFolder(url: url)
         }
     }
+
+    /// Extraído de `openFolder()` (Task 12, drag&drop): setea el árbol sin pasar por
+    /// NSOpenPanel, para reusarlo tanto al soltar una carpeta desde Finder como en la
+    /// restauración de sesión (Task 13).
+    func openFolder(url: URL) {
+        fileTree.openFolder(url)
+        recentFolders.add(url)
+    }
+
+    // MARK: - Crear archivo/carpeta (Task 6, árbol de archivos)
+
+    /// Crea un archivo vacío con nombre único (`sin título.txt`, `sin título 2.txt`, ...) en
+    /// `dir`, refresca el árbol y arranca el rename inline sobre él. `fileTree.createdFileAwaitingOpen`
+    /// es la señal que consume el Sidebar para abrir el archivo (con `tabs.open(url:)`) apenas
+    /// ese rename termine, confirmado o cancelado — Finder también abre/conserva el archivo
+    /// nuevo aunque se cancele el rename.
+    func newFile(in dir: URL) {
+        let url = uniqueURL(in: dir, baseName: L("sin título"), ext: "txt")
+        guard FileManager.default.createFile(atPath: url.path, contents: Data()) else {
+            presentAlert(L("No se pudo crear el archivo."), detail: L("No se pudo escribir en \(dir.lastPathComponent)."))
+            return
+        }
+        fileTree.refresh()
+        fileTree.createdFileAwaitingOpen = url
+        fileTree.pendingRenameURL = url
+    }
+
+    /// Crea una carpeta con nombre único (`nueva carpeta`, `nueva carpeta 2`, ...) en `dir`,
+    /// refresca el árbol y arranca el rename inline sobre ella. A diferencia de `newFile`, una
+    /// carpeta nunca se "abre", así que no toca `createdFileAwaitingOpen`.
+    func newFolder(in dir: URL) {
+        let url = uniqueURL(in: dir, baseName: L("nueva carpeta"), ext: nil)
+        do {
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
+        } catch {
+            presentAlert(L("No se pudo crear la carpeta."), detail: error.localizedDescription)
+            return
+        }
+        fileTree.refresh()
+        fileTree.pendingRenameURL = url
+    }
+
+    /// Primer nombre libre en `dir` con base `baseName` (y extensión `ext` si corresponde):
+    /// `baseName.ext`, luego `baseName 2.ext`, `baseName 3.ext`, etc.
+    private func uniqueURL(in dir: URL, baseName: String, ext: String?) -> URL {
+        func candidate(_ name: String) -> URL {
+            if let ext { return dir.appendingPathComponent(name).appendingPathExtension(ext) }
+            return dir.appendingPathComponent(name)
+        }
+        var url = candidate(baseName)
+        var suffix = 2
+        while FileManager.default.fileExists(atPath: url.path) {
+            url = candidate("\(baseName) \(suffix)")
+            suffix += 1
+        }
+        return url
+    }
+}
+
+/// Alert modal genérico para errores de acciones de archivo (crear/etc). Mismo patrón que
+/// `presentPrintError` en Printing.swift: una función global evita duplicar un helper privado
+/// por cada tipo que necesita mostrar un NSAlert de error.
+func presentAlert(_ message: String, detail: String) {
+    let alert = NSAlert()
+    alert.messageText = message
+    alert.informativeText = detail
+    alert.addButton(withTitle: L("OK"))
+    alert.runModal()
 }

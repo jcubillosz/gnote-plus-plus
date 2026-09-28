@@ -312,6 +312,33 @@ private func setLexerProperty(_ editor: ScintillaView, _ key: String, _ value: S
     }
 }
 
+/// Tinte de fondo "documento bloqueado": recorre todos los estilos de texto (0...STYLE_MAX)
+/// con SCI_STYLESETBACK, dejando el color el margen de números de línea (STYLE_LINENUMBER)
+/// tal como lo dejó el tema — el número de línea no es "texto del documento" y mezclarlo con
+/// el tinte lo haría menos legible sin aportar a la señal de "esto está bloqueado".
+///
+/// NO tiñe SCI_SETCARETLINEBACK (línea del cursor): esa feature no está habilitada en
+/// ningún lugar de la app hoy (sin resaltado de línea de cursor propio, sin preferencia
+/// que lo active), y a diferencia de los estilos de arriba, no hay ningún "reapply normal"
+/// que la restaure al desbloquear — applyGlobalStyle no la toca. Teñirla la dejaría navy
+/// para siempre desde el primer bloqueo, en cualquier pestaña, porque ScintillaView es
+/// compartido. Si se habilita resaltado de línea de cursor como feature propia más
+/// adelante, hay que sumar acá su tinte Y su restauración simétrica (leer el color normal
+/// del tema, ej. "Current line background colour" vía globalStyle(name:theme:)) antes de
+/// volver a tocar este mensaje.
+///
+/// Se llama desde reapplyPreferencesAndTheme() al final, solo si el documento activo está
+/// bloqueado: como applyLanguage (SCI_STYLECLEARALL) y applyGlobalStyle ya corrieron antes en
+/// esa misma función, el tinte sobrevive a cambios de tema, lenguaje o preferencias sin volver
+/// a tocar SCI_SETREADONLY.
+func applyLockTint(_ editor: ScintillaView, theme: EditorTheme) {
+    let tintHex = theme == .dark ? "0F1B2E" : "E8EFF9"
+    guard let tint = hexRRGGBBToScintillaBGR(tintHex) else { return }
+    for style in 0...STYLE_MAX where style != STYLE_LINENUMBER {
+        _ = ScintillaView.directCall(editor, message: SCI_STYLESETBACK, wParam: uptr_t(style), lParam: tint)
+    }
+}
+
 func applyLanguage(_ editor: ScintillaView, profile: LanguageProfile) {
     let lexerPtr = Lexilla_CreateLexer(profile.lexerName)
     _ = ScintillaView.directCall(editor, message: SCI_SETILEXER, wParam: 0, lParam: sptr_t(bitPattern: lexerPtr))

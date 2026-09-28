@@ -16,6 +16,7 @@
   --md-quote-fg: #2e7d32;
   --md-table-stripe: #f6f8fa;
   --md-mark-bg: #fff8c5;
+  --md-code-lang-bg: #eaeef2;
 }
 
 :root[data-theme="dark"] {
@@ -28,6 +29,7 @@
   --md-quote-border: #3d444d;
   --md-table-stripe: #151b23;
   --md-mark-bg: #4a3d00;
+  --md-code-lang-bg: #212830;
 }
 
 * { box-sizing: border-box; }
@@ -132,6 +134,28 @@ pre > code {
   background: transparent;
   border-radius: 0;
   white-space: pre;
+}
+
+/* Bloque con lenguaje: cabecera con el nombre, separador y el código. */
+.code-block {
+  margin: 0 0 1em;
+  border: 1px solid var(--md-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.code-lang {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.75em;
+  padding: 4px 10px;
+  color: var(--md-muted);
+  background: var(--md-code-lang-bg);
+  border-bottom: 1px solid var(--md-border);
+}
+
+.code-block pre {
+  margin: 0;
+  border-radius: 0;
 }
 
 /* ---------- Tablas ---------- */

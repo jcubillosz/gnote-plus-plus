@@ -17,6 +17,19 @@ final class Document: Identifiable {
     var encodingNote: String?
     var eol: EOLMode
     var isDirty: Bool = false
+    /// Solo lectura visible (tinte navy) e impuesto en Scintilla. Persistido por ruta en
+    /// LockedFiles; un documento "Nuevo" sin URL se bloquea solo durante la sesión (no hay
+    /// ruta que persistir). SCI_SETREADONLY se guarda por documento de Scintilla, pero esta
+    /// propiedad es la fuente de verdad — attachToEditor la reaplica en cada activación.
+    var isLocked: Bool = false
+    /// Selección y scroll de la última vez que este documento estuvo activo. SCI_SETDOCPOINTER
+    /// limpia ambos al cambiar de pestaña, así que sin esto volver a una pestaña siempre
+    /// arrancaría con el caret al inicio. nil = documento recién creado, nunca desactivado.
+    var viewState: ViewState?
+    /// Tag único de NSSpellChecker para este documento (Task 10). Cada documento necesita
+    /// el suyo: NSSpellChecker usa el tag para recordar "ignorar esta palabra" por
+    /// documento, y compartir uno entre pestañas mezclaría esas decisiones.
+    let spellDocumentTag: Int = NSSpellChecker.uniqueSpellDocumentTag()
 
     init(
         pointer: sptr_t,
@@ -39,6 +52,14 @@ final class Document: Identifiable {
     }
 }
 
+/// Estado de vista (selección/scroll) de un documento, capturado justo antes de desactivarlo.
+/// Codable porque una task futura (restauración de sesión) lo persiste a UserDefaults como JSON.
+struct ViewState: Codable, Equatable {
+    var selection: String
+    var firstVisibleLine: Int
+    var xOffset: Int
+}
+
 final class TabsViewModel: ObservableObject {
     @Published private(set) var documents: [Document] = []
     @Published private(set) var activeIndex: Int?
@@ -48,6 +69,7 @@ final class TabsViewModel: ObservableObject {
     let statusBar = StatusBarViewModel()
     let find = FindViewModel()
     let preview = MarkdownPreviewViewModel()
+    let spellCheck = SpellCheckViewModel()
     let recentFiles: RecentPathsViewModel
     private(set) var currentTheme: EditorTheme = .light
     private var untitledCounter = 0
@@ -114,7 +136,8 @@ final class TabsViewModel: ObservableObject {
             encoding: file.encoding,
             encodingName: file.encodingName,
             encodingNote: file.note,
-            eol: file.eol
+            eol: file.eol,
+            locked: LockedFiles.isLocked(url)
         )
         recentFiles.add(url)
         return true
@@ -158,7 +181,8 @@ final class TabsViewModel: ObservableObject {
         encoding: String.Encoding,
         encodingName: String,
         encodingNote: String?,
-        eol: EOLMode
+        eol: EOLMode,
+        locked: Bool = false
     ) {
         let docPtr = ScintillaView.directCall(editor, message: SCI_CREATEDOCUMENT, wParam: 0, lParam: 0)
         let document = Document(
@@ -171,6 +195,12 @@ final class TabsViewModel: ObservableObject {
             encodingNote: encodingNote,
             eol: eol
         )
+        document.isLocked = locked
+        // El documento saliente (si lo hay) también pierde selección/scroll al hacer
+        // SETDOCPOINTER más abajo, y este camino no pasa por activate(at:) — sin esto,
+        // abrir un archivo nuevo dejaría la pestaña anterior sin su viewState guardado.
+        syncDirtyFlagOfActiveDocument()
+        saveViewStateOfActive()
         documents.append(document)
         activeIndex = documents.count - 1
         attachToEditor(document)
@@ -180,6 +210,9 @@ final class TabsViewModel: ObservableObject {
         // plataforma y un archivo CRLF terminaría mezclado.
         _ = ScintillaView.directCall(editor, message: SCI_SETEOLMODE, wParam: uptr_t(eol.rawValue), lParam: 0)
         loadText(editor, text)
+        // Sin esto, Cmd+Z justo después de abrir vacía el documento recién cargado: para
+        // Scintilla, cargar texto es "una edición más" y queda en el buffer de undo.
+        _ = ScintillaView.directCall(editor, message: SCI_EMPTYUNDOBUFFER, wParam: 0, lParam: 0)
         _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
     }
 
@@ -188,6 +221,7 @@ final class TabsViewModel: ObservableObject {
     func activate(at index: Int) {
         guard documents.indices.contains(index), index != activeIndex else { return }
         syncDirtyFlagOfActiveDocument()
+        saveViewStateOfActive()
         activeIndex = index
         attachToEditor(documents[index])
     }
@@ -203,6 +237,9 @@ final class TabsViewModel: ObservableObject {
             return
         }
         _ = ScintillaView.directCall(editor, message: SCI_RELEASEDOCUMENT, wParam: 0, lParam: document.pointer)
+        // Libera el estado de "ignorar palabra"/aprendizaje que NSSpellChecker guarda por
+        // tag: sin esto, tags de pestañas cerradas se acumulan durante toda la sesión.
+        NSSpellChecker.shared.closeSpellDocument(withTag: document.spellDocumentTag)
         documents.remove(at: index)
         if documents.isEmpty {
             activeIndex = nil
@@ -218,8 +255,25 @@ final class TabsViewModel: ObservableObject {
 
     private func attachToEditor(_ document: Document) {
         _ = ScintillaView.directCall(editor, message: SCI_SETDOCPOINTER, wParam: 0, lParam: document.pointer)
+        // Scintilla guarda solo-lectura por documento, pero Document.isLocked es la fuente
+        // de verdad: reaplicarlo en cada activación cubre tanto la primera apertura como
+        // volver a una pestaña ya bloqueada.
+        // SCI_SETREADONLY(bool readOnly): el booleano va en wParam, no en lParam (bug real
+        // encontrado en QA manual: con lParam el mensaje no hacía nada y se podía seguir
+        // editando y guardando un documento "bloqueado").
+        _ = ScintillaView.directCall(editor, message: SCI_SETREADONLY, wParam: document.isLocked ? 1 : 0, lParam: 0)
         publishFileInfo(of: document)
         reapplyPreferencesAndTheme()
+        restoreViewState(of: document)
+        // SCI_SETDOCPOINTER puede disparar una notificación de savepoint espuria para el
+        // documento recién adjuntado (el editor compara contra el estado del doc anterior).
+        // Resincronizar acá contra SCI_GETMODIFY corrige cualquier isDirty que haya quedado
+        // mal seteado por esa notificación falsa.
+        let modified = ScintillaView.directCall(editor, message: SCI_GETMODIFY, wParam: 0, lParam: 0) != 0
+        if document.isDirty != modified {
+            document.isDirty = modified
+            objectWillChange.send()
+        }
     }
 
     private func publishFileInfo(of document: Document) {
@@ -235,10 +289,32 @@ final class TabsViewModel: ObservableObject {
     /// quedan pisados por los colores de texto plano.
     func reapplyPreferencesAndTheme() {
         preferences.apply(to: editor) // fuente primero (ver nota en EditorPreferences.applyFont)
+        // SCI_STYLECLEARALL (dentro de applyLanguage, más abajo) copia el STYLE_DEFAULT
+        // ACTUAL a todos los estilos, incluido el 0 — no un valor neutro. Si el documento
+        // anterior quedó teñido navy por un bloqueo (applyLockTint tiñe STYLE_DEFAULT
+        // también), y el perfil nuevo no define estilos propios (ej. texto plano,
+        // nullProfile en Language.swift), STYLECLEARALL propaga ese navy y nada lo
+        // corrige después: applyGlobalStyle de abajo llega tarde para estilos que un
+        // lenguaje sin stylers.xml nunca toca. Como ScintillaView es compartido entre
+        // pestañas, el tinte se filtraba incluso a pestañas de texto plano que nunca se
+        // bloquearon. Fijar acá el color real del tema en STYLE_DEFAULT, ANTES de
+        // STYLECLEARALL, garantiza que lo que se propaga sea siempre el default correcto,
+        // sin importar si el documento estaba bloqueado o si el lenguaje nuevo define
+        // estilos propios.
+        if let defaultStyle = globalStyle(name: "Default Style", theme: currentTheme) {
+            setStyle(editor, STYLE_DEFAULT, fore: defaultStyle.fore, back: defaultStyle.back)
+        }
         if let profile = activeDocument?.languageProfile {
             applyLanguage(editor, profile: profile)
         }
         applyGlobalStyle(theme: currentTheme)
+        // Al final y condicional: applyLanguage (STYLECLEARALL) y applyGlobalStyle ya
+        // dejaron los colores "normales" puestos, así que el tinte de bloqueo pisa encima
+        // sin que un cambio de tema/lenguaje/preferencias lo pierda. Si el documento no
+        // está bloqueado, no se toca nada más — los colores de arriba son el resultado final.
+        if activeDocument?.isLocked == true {
+            applyLockTint(editor, theme: currentTheme)
+        }
     }
 
     private func syncDirtyFlagOfActiveDocument() {
@@ -246,15 +322,64 @@ final class TabsViewModel: ObservableObject {
         document.isDirty = ScintillaView.directCall(editor, message: SCI_GETMODIFY, wParam: 0, lParam: 0) != 0
     }
 
-    /// Se llama desde el callback SC_UPDATE_CONTENT de Scintilla (vía ContentView) cada
-    /// vez que el texto cambia en la pestaña activa. A diferencia de
-    /// syncDirtyFlagOfActiveDocument() (que solo se ejecuta al cambiar/cerrar pestaña),
-    /// esto marca el punto de "sin guardar" en tiempo real mientras se escribe.
-    func markActiveDirty() {
-        guard let document = activeDocument, !document.isDirty else { return }
-        document.isDirty = true
+    /// Captura selección y scroll del documento activo antes de desactivarlo (cambio de
+    /// pestaña o apertura de una nueva). SCI_SETDOCPOINTER los limpia, así que si no se
+    /// guardan acá se pierden para siempre.
+    /// No-private: SessionStore (Task 13) la llama al terminar la app para volcar la
+    /// selección/scroll vigente del documento activo antes de persistir la sesión.
+    func saveViewStateOfActive() {
+        guard let document = activeDocument else { return }
+        document.viewState = ViewState(
+            selection: selectionSerialized(editor),
+            firstVisibleLine: Int(ScintillaView.directCall(editor, message: SCI_GETFIRSTVISIBLELINE, wParam: 0, lParam: 0)),
+            xOffset: Int(ScintillaView.directCall(editor, message: SCI_GETXOFFSET, wParam: 0, lParam: 0))
+        )
+    }
+
+    /// Reaplica selección y scroll guardados. Sin viewState (documento recién creado) no
+    /// hace nada y el documento arranca como Scintilla lo deja por defecto (inicio, sin
+    /// selección). Deliberadamente sin SCROLLCARET/GOTOPOS después: eso movería el scroll
+    /// para asegurar que el caret sea visible, pisando el xOffset/firstVisibleLine exactos
+    /// que se acaban de restaurar.
+    /// No-private: SessionStore (Task 13) la reaplica explícitamente tras activar la
+    /// pestaña restaurada como activa, para el caso en que activate(at:) hace early-return
+    /// por ya estar en ese índice (última pestaña abierta == pestaña activa guardada).
+    func restoreViewState(of document: Document) {
+        guard let viewState = document.viewState else { return }
+        setSelectionSerialized(editor, viewState.selection)
+        _ = ScintillaView.directCall(editor, message: SCI_SETFIRSTVISIBLELINE, wParam: uptr_t(viewState.firstVisibleLine), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETXOFFSET, wParam: uptr_t(viewState.xOffset), lParam: 0)
+    }
+
+    /// Se llama desde los callbacks SCN_SAVEPOINTLEFT/SCN_SAVEPOINTREACHED de Scintilla (vía
+    /// ContentView) cada vez que el documento se aleja o vuelve al savepoint. A diferencia de
+    /// SC_UPDATE_CONTENT (que también se dispara al recolorear sin cambios reales), el
+    /// savepoint solo cruza con ediciones/undo/redo genuinos.
+    func setActiveDirty(_ dirty: Bool) {
+        guard let document = activeDocument, document.isDirty != dirty else { return }
+        document.isDirty = dirty
         // Document es una clase dentro de un array @Published: mutarle isDirty no
         // republica nada por sí solo, y el punto de la pestaña no aparecería.
+        objectWillChange.send()
+    }
+
+    // MARK: - Bloqueo de edición
+
+    /// Invierte el bloqueo del documento activo. Persiste por ruta si el documento tiene
+    /// una (un "Nuevo" sin guardar se bloquea solo para esta sesión), aplica el read-only
+    /// real en Scintilla y reaplica tema/estilos para que el tinte navy aparezca o
+    /// desaparezca de inmediato.
+    func toggleLockActive() {
+        guard let document = activeDocument else { return }
+        document.isLocked.toggle()
+        if let url = document.url {
+            LockedFiles.set(url, locked: document.isLocked)
+        }
+        // Ver el comentario en attachToEditor: el booleano de SCI_SETREADONLY va en wParam.
+        _ = ScintillaView.directCall(editor, message: SCI_SETREADONLY, wParam: document.isLocked ? 1 : 0, lParam: 0)
+        reapplyPreferencesAndTheme()
+        // Document es una clase dentro de un array @Published: mutarle isLocked no
+        // republica nada por sí solo, y el botón/menú de candado no se actualizarían.
         objectWillChange.send()
     }
 
@@ -291,10 +416,21 @@ final class TabsViewModel: ObservableObject {
         // bien: si falla, renombrar la pestaña dejaría al usuario creyendo que su
         // trabajo vive en un archivo que nunca se creó.
         let previousExtension = document.url?.pathExtension.lowercased()
+        let previousURL = document.url
         guard write(document: document, to: url) else { return }
         document.url = url
         document.displayName = url.lastPathComponent
         recentFiles.add(url)
+        // Guardar-como un documento bloqueado tiene que persistir la ruta nueva: si ya
+        // tenía una ruta bloqueada, la migra; si era un "Nuevo" bloqueado solo para la
+        // sesión, ahora que tiene ruta el bloqueo pasa a sobrevivir a cerrar la app.
+        if document.isLocked {
+            if let previousURL {
+                LockedFiles.move(from: previousURL, to: url)
+            } else {
+                LockedFiles.set(url, locked: true)
+            }
+        }
 
         // Guardar como .py algo que era .txt tiene que recolorearlo. Va por
         // reapplyPreferencesAndTheme y no por applyLanguage directo porque
@@ -310,9 +446,9 @@ final class TabsViewModel: ObservableObject {
 
     // MARK: - Renombrar
 
-    /// Mueve el archivo en disco y reapunta la pestaña. El buffer no se toca: las
-    /// ediciones sin guardar siguen en la pestaña y se escriben en la ruta nueva
-    /// al guardar, así que no hace falta forzar un guardado previo.
+    /// Mueve el archivo activo en disco y reapunta la pestaña. Wrapper sobre `renameItem`
+    /// que agrega el prompt: la lógica de validación/move/rebase vive ahí para que el rename
+    /// inline del árbol (Sidebar) la reuse sin pasar por un diálogo modal.
     func renameActive() {
         guard let document = activeDocument, let current = document.url else { return }
         guard let newName = promptForText(
@@ -320,9 +456,20 @@ final class TabsViewModel: ObservableObject {
             detail: L("Escribe el nombre nuevo. El archivo se mueve en disco; los cambios sin guardar no se pierden."),
             initialValue: current.lastPathComponent
         ) else { return }
+        renameItem(at: current, to: newName)
+    }
 
+    /// Mueve un archivo o carpeta en disco a un nombre nuevo dentro de la misma carpeta y
+    /// reapunta cualquier pestaña abierta afectada. El buffer no se toca: las ediciones sin
+    /// guardar siguen en la pestaña y se escriben en la ruta nueva al guardar, así que no
+    /// hace falta forzar un guardado previo. Usado por `renameActive()` (documento activo,
+    /// vía prompt) y por el rename inline del árbol de archivos.
+    /// Devuelve la URL destino si el rename se hizo, o nil si se canceló o falló (ya se
+    /// mostró el alert correspondiente).
+    @discardableResult
+    func renameItem(at url: URL, to newName: String) -> URL? {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed != current.lastPathComponent else { return }
+        guard !trimmed.isEmpty, trimmed != url.lastPathComponent else { return nil }
 
         // Renombrar cambia el nombre, no la ubicación. Sin esto, "sub/x.txt" movería el
         // archivo a otra carpeta y ".." lo subiría un nivel, con la pestaña reapuntada como
@@ -332,47 +479,89 @@ final class TabsViewModel: ObservableObject {
                 L("\(trimmed) no es un nombre de archivo válido."),
                 detail: L("El nombre no puede contener «/» ni ser «.» o «..». Renombrar cambia el nombre, no la carpeta.")
             )
-            return
+            return nil
         }
 
-        let destination = current.deletingLastPathComponent().appendingPathComponent(trimmed)
+        let destination = url.deletingLastPathComponent().appendingPathComponent(trimmed)
 
         // Nunca sobrescribir: es la única forma de que renombrar destruya datos. Pero en un
         // volumen case-insensitive (APFS por default) renombrar "a.txt" a "A.txt" hace que
         // fileExists matchee el archivo de origen — por eso se compara la identidad del
         // archivo y no solo la ruta, o un cambio de mayúsculas sería imposible.
-        if FileManager.default.fileExists(atPath: destination.path), !isSameFile(current, destination) {
+        if FileManager.default.fileExists(atPath: destination.path), !isSameFile(url, destination) {
             presentAlert(
                 L("Ya existe un archivo llamado \(trimmed)."),
                 detail: L("Elige otro nombre; renombrar no sobrescribe archivos.")
             )
-            return
+            return nil
         }
 
+        var isDirectoryFlag: ObjCBool = false
+        FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectoryFlag)
+
         do {
-            try FileManager.default.moveItem(at: current, to: destination)
+            try FileManager.default.moveItem(at: url, to: destination)
         } catch {
             // El documento no se toca si el move falló: reapuntarlo dejaría la pestaña
             // creyendo que vive en un archivo que no existe.
-            presentAlert(L("No se pudo renombrar \(current.lastPathComponent)."), detail: error.localizedDescription)
-            return
+            presentAlert(L("No se pudo renombrar \(url.lastPathComponent)."), detail: error.localizedDescription)
+            return nil
         }
 
-        document.url = destination
-        document.displayName = destination.lastPathComponent
-        recentFiles.remove(current)
-        recentFiles.add(destination)
-
-        // Renombrar .txt a .py tiene que recolorear. Igual que en saveActiveAs, va por
-        // reapplyPreferencesAndTheme y no por applyLanguage directo porque
-        // SCI_STYLECLEARALL pisa STYLE_LINENUMBER, el caret y la selección.
-        if destination.pathExtension.lowercased() != current.pathExtension.lowercased() {
-            document.languageProfile = languageProfile(forExtension: destination.pathExtension, theme: currentTheme)
-            reapplyPreferencesAndTheme()
-        }
+        rebaseOpenTabs(from: url, to: destination, isDirectory: isDirectoryFlag.boolValue)
         // Document es una clase dentro de un array @Published: mutarle displayName no
         // republica nada por sí solo y la pestaña seguiría con el nombre viejo.
         objectWillChange.send()
+        return destination
+    }
+
+    /// Reapunta toda pestaña abierta afectada por un rename/move en disco. Archivo: solo la
+    /// pestaña con esa URL exacta. Carpeta: toda pestaña cuya ruta viva bajo ella — se compara
+    /// el prefijo sobre standardizedFileURL.path para no depender de cómo haya llegado la URL.
+    private func rebaseOpenTabs(from old: URL, to new: URL, isDirectory: Bool) {
+        if isDirectory {
+            let oldPrefix = old.standardizedFileURL.path + "/"
+            // Migra TODO path bloqueado bajo la carpeta vieja, no solo el de las pestañas
+            // abiertas: un archivo bloqueado que no está abierto en este momento también
+            // vive bajo `old` y perdería su bloqueo (ruta vieja huérfana) si solo se migraran
+            // los de `documents`.
+            LockedFiles.moveTree(from: old, to: new)
+            for document in documents {
+                guard let docURL = document.url else { continue }
+                let docPath = docURL.standardizedFileURL.path
+                guard docPath.hasPrefix(oldPrefix) else { continue }
+                let suffix = String(docPath.dropFirst(oldPrefix.count))
+                let newURL = new.standardizedFileURL.appendingPathComponent(suffix)
+
+                recentFiles.remove(docURL)
+                recentFiles.add(newURL)
+                document.url = newURL
+                document.displayName = newURL.lastPathComponent
+            }
+        } else {
+            guard let document = documents.first(where: {
+                $0.url?.standardizedFileURL.path == old.standardizedFileURL.path
+            }) else { return }
+
+            let previousExtension = old.pathExtension.lowercased()
+            LockedFiles.move(from: old, to: new)
+            recentFiles.remove(old)
+            recentFiles.add(new)
+            document.url = new
+            document.displayName = new.lastPathComponent
+
+            // Renombrar .txt a .py tiene que recolorear. Igual que en saveActiveAs, va por
+            // reapplyPreferencesAndTheme y no por applyLanguage directo porque
+            // SCI_STYLECLEARALL pisa STYLE_LINENUMBER, el caret y la selección. Solo si es
+            // la pestaña activa: recolorear una inactiva pisaría el estilo del documento
+            // que sí está en pantalla (ScintillaView es uno solo y compartido).
+            if new.pathExtension.lowercased() != previousExtension {
+                document.languageProfile = languageProfile(forExtension: new.pathExtension, theme: currentTheme)
+                if document === activeDocument {
+                    reapplyPreferencesAndTheme()
+                }
+            }
+        }
     }
 
     /// Devuelve true sólo si el archivo quedó escrito en disco.
@@ -387,7 +576,7 @@ final class TabsViewModel: ObservableObject {
             try data.write(to: url, options: .atomic)
             document.isDirty = false
             _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
-            // Mismo motivo que en markActiveDirty(): sin esto, el punto de la pestaña
+            // Mismo motivo que en setActiveDirty(): sin esto, el punto de la pestaña
             // seguiría visible después de guardar hasta el próximo cambio de pestaña.
             objectWillChange.send()
             return true
@@ -491,7 +680,14 @@ final class TabsViewModel: ObservableObject {
         document.eol = detectEOL(text)
         _ = ScintillaView.directCall(editor, message: SCI_SETEOLMODE, wParam: uptr_t(document.eol.rawValue), lParam: 0)
         publishFileInfo(of: document)
+        // Se invalida en vez de dejar que Scintilla la acote: forzar un encoding puede cambiar
+        // radicalmente el contenido decodificado (mojibake -> texto real), así que la posición
+        // de scroll/selección vieja ya no tiene relación con lo que el usuario ve.
+        document.viewState = nil
         loadText(editor, text)
+        // Mismo motivo que en appendAndActivate: sin esto, Cmd+Z después de recargar
+        // vaciaría el documento en vez de deshacer una edición real.
+        _ = ScintillaView.directCall(editor, message: SCI_EMPTYUNDOBUFFER, wParam: 0, lParam: 0)
         document.isDirty = false
         _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
     }
@@ -502,7 +698,11 @@ final class TabsViewModel: ObservableObject {
         guard let document = activeDocument else { return }
         let profile = languageProfile(byLanguageName: langName, theme: currentTheme)
         document.languageProfile = profile
-        applyLanguage(editor, profile: profile)
+        // Mismo motivo que en applyTheme/saveActiveAs: ir directo a applyLanguage salta el
+        // reset de STYLE_DEFAULT previo a STYLECLEARALL y el reaplicado del tinte de bloqueo
+        // que reapplyPreferencesAndTheme() hace en orden — en un documento bloqueado eso deja
+        // el tinte a medio aplicar y puede pisar número de línea/caret/selección.
+        reapplyPreferencesAndTheme()
     }
 
     // MARK: - Tema (claro/oscuro, sigue al sistema)
@@ -510,11 +710,17 @@ final class TabsViewModel: ObservableObject {
     func applyTheme(_ theme: EditorTheme) {
         currentTheme = theme
         if let document = activeDocument, let url = document.url {
-            let profile = languageProfile(forExtension: url.pathExtension, theme: theme)
-            document.languageProfile = profile
-            applyLanguage(editor, profile: profile)
+            document.languageProfile = languageProfile(forExtension: url.pathExtension, theme: theme)
         }
-        applyGlobalStyle(theme: theme)
+        // Ruta única: reapplyPreferencesAndTheme() ya hace, en orden, el reset de
+        // STYLE_DEFAULT previo a STYLECLEARALL (ver su comentario) + applyLanguage +
+        // applyGlobalStyle + applyLockTint si el documento activo está bloqueado. Antes,
+        // este método duplicaba applyLanguage/applyGlobalStyle sin el reset ni el tinte:
+        // un cambio de tema con el documento bloqueado dejaba estilo 0 navy del tema
+        // VIEJO pisado por STYLECLEARALL sin corregir, y encima nunca reaplicaba el tinte
+        // del tema nuevo. Iba por acá que un toggle de tema con un documento de texto
+        // plano bloqueado (o recién desbloqueado) filtraba navy a otras pestañas.
+        reapplyPreferencesAndTheme()
     }
 
     /// Colores globales del tema (no ligados a un lenguaje): fondo/texto por defecto, número

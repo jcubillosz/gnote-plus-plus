@@ -27,8 +27,35 @@ struct FileNode: Identifiable {
 
 final class FileTreeViewModel: ObservableObject {
     @Published var root: FileNode?
+    /// Cuando se setea, la fila con esta URL entra en modo rename inline en el Sidebar.
+    /// Usado por Task 6 (crear archivo/carpeta nuevo) para arrancar directo en rename;
+    /// el Sidebar lo limpia a nil una vez que arranca a editar esa fila.
+    @Published var pendingRenameURL: URL?
+    /// URL del archivo recién creado por "Nuevo archivo" (Task 6), en espera de que termine
+    /// su rename inline (confirmado o cancelado) para abrirse en una pestaña. El Sidebar lo
+    /// consume y limpia en ambos caminos; nil el resto del tiempo, y nunca se usa para
+    /// carpetas (una carpeta no se "abre").
+    @Published var createdFileAwaitingOpen: URL?
+    private var watcher: DirectoryWatcher?
 
     func openFolder(_ url: URL) {
         root = FileNode(url: url, isDirectory: true)
+        watcher?.stop()
+        // `[weak self]` porque el watcher vive en una CFRunLoop/dispatch queue, no atado
+        // al ciclo de vida normal de SwiftUI — sin esto, un refresh tardío podría llegar
+        // después de que el view model ya no exista.
+        watcher = DirectoryWatcher(url: url) { [weak self] in
+            self?.refresh()
+        }
+    }
+
+    /// `FileNode.children` relee el disco en cada acceso (ver comentario arriba), así que
+    /// alcanza con forzar un re-render — no hay estado que recalcular acá.
+    func refresh() {
+        objectWillChange.send()
+    }
+
+    deinit {
+        watcher?.stop()
     }
 }

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novedades de GNote++ — historial de versiones</title>
+<meta name="description" content="Historial de versiones de GNote++, el editor de Markdown y código, gratuito, de código abierto para macOS: qué cambió en cada versión, de la 1.0 a la 1.3.1.">
+<link rel="canonical" href="https://jcubillosz.github.io/gnote-plus-plus/es/changelog/">
+<link rel="alternate" hreflang="en" href="https://jcubillosz.github.io/gnote-plus-plus/changelog/">
+<link rel="alternate" hreflang="es" href="https://jcubillosz.github.io/gnote-plus-plus/es/changelog/">
+<link rel="alternate" hreflang="x-default" href="https://jcubillosz.github.io/gnote-plus-plus/changelog/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Novedades de GNote++">
+<meta property="og:url" content="https://jcubillosz.github.io/gnote-plus-plus/es/changelog/">
+<meta property="og:image" content="https://jcubillosz.github.io/gnote-plus-plus/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="../../favicon.png">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<link rel="stylesheet" href="../../site.css">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <a class="brand" href="../"><img src="../../logo.png" width="36" height="36" alt="">GNote++</a>
+      <nav aria-label="Sitio">
+        <a href="https://github.com/jcubillosz/gnote-plus-plus">GitHub</a>
+        <a href="../#apoyar">Donar</a>
+        <a href="../../changelog/" hreflang="en" lang="en">English</a>
+      </nav>
+    </div>
+    <div class="page-head">
+      <h1>Novedades</h1>
+      <p class="lede">Todas las versiones de GNote++, de la más nueva a la más antigua. La versión actual es la 1.3.1.</p>
+      <div class="actions">
+        <a class="button button-primary" href="https://github.com/jcubillosz/gnote-plus-plus/releases/latest">Descargar para Mac</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap changelog">
+  <article class="release" id="v1-3-1">
+    <h2><a href="#v1-3-1">1.3.1</a></h2>
+    <p class="release-date"><time datetime="2026-10-06">2026-10-06</time></p>
+    <ul>
+      <li><strong>Interfaz en inglés</strong>: en Mac configurados en inglés la app se mostraba en español, porque un error de formato en el archivo de traducciones hacía que macOS lo descartara completo. Ahora sigue el idioma del sistema.</li>
+    </ul>
+  </article>
+  <article class="release" id="v1-3-0">
+    <h2><a href="#v1-3-0">1.3.0</a></h2>
+    <p class="release-date"><time datetime="2026-10-06">2026-10-06</time></p>
+    <ul>
+      <li><strong>Diagramas Mermaid</strong> en la vista previa de Markdown (flujo, secuencia, clases, estados, Gantt, torta, mapas mentales y más), con un menú de plantillas para empezar. Se dibujan aparte, sin darle JavaScript a la vista previa, y se pueden guardar como PNG o SVG o copiar como imagen (también con clic derecho sobre el diagrama).</li>
+      <li><strong>Markdown</strong>: barra de formato propia sobre las pestañas; alertas de GitHub (<code>&gt; [!NOTE]</code>, <code>[!WARNING]</code>…); casillas de tareas que se marcan con un clic en la vista previa; Enter continúa listas; formatear y alinear tablas (⌥⌘T); pegar o arrastrar imágenes (las de afuera se copian a <code>images/</code> junto al documento); esquema del documento en la barra lateral.</li>
+      <li><strong>Funciones de Notepad++</strong>: marcadores y plegado de código, historial de cambios en el margen, llaves y etiquetas pareadas, resaltado de la palabra seleccionada, multicursor y edición en columna, autocompletado en código, autocierre de paréntesis y comillas, operaciones de línea, comentar (⌘K), zoom y conversión de fin de línea.</li>
+      <li><strong>Minimapa</strong> del documento a la derecha del editor (⌃⌘M).</li>
+      <li><strong>Buscar en archivos</strong> de la carpeta abierta y lista de funciones del código en la barra lateral.</li>
+      <li>Los archivos abiertos se recargan si otro programa los cambia; al guardar se avisa si el disco cambió.</li>
+      <li>Árbol de archivos: mover archivos y carpetas arrastrando o con "Mover a…".</li>
+      <li>Pestañas: flechas y menú para llegar a las que no entran en la ventana.</li>
+      <li><strong>Impresión y PDF de Markdown</strong>: ya no se repiten líneas entre páginas y se usa el tamaño de papel de la impresora (Archivo ▸ Ajustar página…).</li>
+      <li>Corrige un cierre inesperado al abrir con ajuste de línea activo y el corrector encendido.</li>
+    </ul>
+  </article>
+  <article class="release" id="v1-2-0">
+    <h2><a href="#v1-2-0">1.2.0</a></h2>
+    <p class="release-date"><time datetime="2026-09-27">2026-09-27</time></p>
+    <ul>
+      <li><strong>Bloqueo de edición</strong> por documento (candado en la toolbar, ⌘⇧L): fondo azul marino, solo lectura real, permite seleccionar y copiar. Útil para información sensible que no quieres arriesgar a modificar por error.</li>
+      <li><strong>Corrector ortográfico</strong> en español e inglés (desactivado por defecto, Editar ▸ Ortografía): subrayado ondulado, sugerencias, aprender e ignorar palabras desde el menú contextual. En código solo revisa comentarios y strings.</li>
+      <li><strong>Markdown</strong>: tres modos de vista (editor / dividida / solo vista previa) y doble clic en el render para saltar a la línea del fuente. Bloques de código con etiqueta de lenguaje y coloreado de sintaxis en la vista previa y la impresión. Letra de impresión ~30% más chica.</li>
+      <li><strong>Árbol de archivos</strong>: crear archivos/carpetas y renombrar directamente ahí (incluida la extensión), con refresco automático al detectar cambios en disco.</li>
+      <li>Arrastrar archivos y carpetas desde Finder para abrirlos; se restaura la sesión (pestañas, cursor, carpeta) al relanzar la app.</li>
+      <li>El punto de "sin guardar" ya no aparece al abrir un archivo sin modificarlo, y cada pestaña recuerda su posición del cursor y su selección al volver a ella.</li>
+    </ul>
+  </article>
+  <article class="release" id="v1-1-0">
+    <h2><a href="#v1-1-0">1.1.0</a></h2>
+    <p class="release-date"><time datetime="2026-09-09">2026-09-09</time></p>
+    <ul>
+      <li><strong>Coloreado de sintaxis</strong>: se corrige un bug que dejaba el editor sin colorear (texto plano negro) en cualquier build hecho con <code>swift build</code> fuera del <code>.app</code> empaquetado — afectaba a todos los lenguajes salvo Markdown.</li>
+      <li><strong>Imprimir / exportar a PDF de Markdown</strong>, reescrito: ahora usa el motor real de WebKit en vez de un importador limitado, así que tablas, títulos y bloques de código salen igual que en la vista previa. Paginación real (corta entre párrafos/filas, no a mitad de renglón) y margen de hoja de 2cm.</li>
+      <li>Blockquote (<code>&gt; texto</code>) con estética de nota: borde y texto verde, fondo verde claro.</li>
+    </ul>
+  </article>
+  <article class="release" id="v1-0">
+    <h2><a href="#v1-0">1.0</a></h2>
+    <p class="release-date"><time datetime="2026-09-07">2026-09-07</time></p>
+    <ul>
+      <li>Primera versión pública: editor Scintilla con pestañas, árbol de archivos, temas claro y oscuro, coloreado de sintaxis para los lenguajes de Notepad++, detección de codificación y fin de línea, buscar y reemplazar con expresiones regulares, y vista previa de Markdown compatible con GitHub.</li>
+    </ul>
+  </article>
+</main>
+
+<footer class="wrap">
+  <p>Las versiones anteriores están en <a href="https://github.com/jcubillosz/gnote-plus-plus/releases">GitHub Releases</a>. GNote++ no está afiliado a Notepad++ ni cuenta con su respaldo.</p>
+</footer>
+</body>
+</html>

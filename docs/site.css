@@ -175,6 +175,37 @@ figcaption { margin-top: 0.7rem; color: var(--muted); font-size: 0.95rem; max-wi
 }
 .build p { max-width: 46rem; color: var(--muted); }
 
+.page-head { padding-block: 2.5rem 3rem; }
+.page-head h1 { max-width: none; }
+
+.release {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: 0 2rem;
+  padding-block: 2.5rem;
+  border-top: 1px solid var(--rule);
+}
+.release h2 { margin: 0; font-size: 1.6rem; }
+.release h2 a { text-decoration: none; }
+.release h2 a:hover { text-decoration: underline; }
+.release-date { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.95rem; grid-column: 1; }
+.release ul {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  margin: 0;
+  padding-left: 1.1rem;
+  max-width: 46rem;
+  color: var(--muted);
+}
+.release li { margin-bottom: 0.6rem; }
+.release li strong { color: var(--ink); font-weight: 600; }
+.release code {
+  font-size: 0.9em;
+  background: #e8ecf2;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
 footer {
   border-top: 1px solid var(--rule);
   padding-block: 2rem 3rem;
@@ -187,4 +218,6 @@ footer p { margin: 0 0 0.5rem; max-width: 60rem; }
   .pitch { grid-template-columns: 1fr; gap: 1.5rem; padding-block: 1.5rem 2.5rem; }
   .pitch-logo { width: 8rem; order: -1; }
   .stage { background: linear-gradient(to bottom, var(--page) 0 30%, var(--navy) 30% 100%); }
+  .release { grid-template-columns: 1fr; }
+  .release ul { grid-column: 1; grid-row: auto; margin-top: 1rem; }
 }

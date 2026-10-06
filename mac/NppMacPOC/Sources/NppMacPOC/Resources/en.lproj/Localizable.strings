@@ -267,12 +267,12 @@
 "Advertencia" = "Warning";
 "Precaución" = "Caution";
 "Guarda el documento antes de pegar una imagen." = "Save the document before pasting an image.";
-"La imagen se guarda en una carpeta "images" junto al archivo Markdown." = "The image is saved in an "images" folder next to the Markdown file.";
+"La imagen se guarda en una carpeta \"images\" junto al archivo Markdown." = "The image is saved in an \"images\" folder next to the Markdown file.";
 "No se pudo guardar la imagen pegada." = "Could not save the pasted image.";
 
 /* Markdown: toolbar ampliada */
 "Guarda el documento antes de insertar una imagen." = "Save the document before inserting an image.";
-"Las imágenes de fuera de la carpeta del documento se copian a una carpeta "images" junto al archivo Markdown." = "Images from outside the document folder are copied to an "images" folder next to the Markdown file.";
+"Las imágenes de fuera de la carpeta del documento se copian a una carpeta \"images\" junto al archivo Markdown." = "Images from outside the document folder are copied to an \"images\" folder next to the Markdown file.";
 "No se pudo copiar la imagen." = "Could not copy the image.";
 "Insertar casilla de verificación" = "Insert checkbox";
 "Marcar/desmarcar casilla" = "Toggle checkbox";

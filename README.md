@@ -15,6 +15,8 @@ Wine, no emulation. Signed and notarized by Apple.
 
 **[Download GNote++ for macOS (.dmg)](https://github.com/jcubillosz/gnote-plus-plus/releases/latest)**
 
+![GNote++ code editor on macOS with file tree, tabs, syntax highlighting and minimap](docs/screenshots/editor.png)
+
 ## Features
 
 - **Syntax highlighting** for every language Notepad++ supports, with its same
@@ -36,6 +38,10 @@ Wine, no emulation. Signed and notarized by Apple.
 - Per-document **edit lock** (read-only) and **spell checker** (English and
   Spanish).
 - Interface in English and Spanish.
+
+![Markdown editor with live preview, Mermaid flowchart, GitHub alert, task list and document outline](docs/screenshots/markdown-mermaid.png)
+
+![Find in files: search results grouped by file in the sidebar](docs/screenshots/find-in-files.png)
 
 GNote++ is not affiliated with or endorsed by Notepad++.
 

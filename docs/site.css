@@ -181,6 +181,10 @@ figcaption { margin-top: 0.7rem; color: var(--muted); font-size: 0.95rem; max-wi
 .release {
   display: grid;
   grid-template-columns: 9rem minmax(0, 1fr);
+  /* La lista ocupa las dos filas: sin "auto 1fr" la fila del título se estira y
+     la fecha queda lejos de la versión. */
+  grid-template-rows: auto 1fr;
+  align-items: start;
   gap: 0 2rem;
   padding-block: 2.5rem;
   border-top: 1px solid var(--rule);

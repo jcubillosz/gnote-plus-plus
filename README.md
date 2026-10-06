@@ -1,4 +1,47 @@
-# GNote++
+# GNote++ — native text & code editor for macOS
+
+[![Latest release](https://img.shields.io/github/v/release/jcubillosz/gnote-plus-plus)](https://github.com/jcubillosz/gnote-plus-plus/releases/latest)
+![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue)
+![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-native-black)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
+
+**English** · [Español](#español)
+
+GNote++ is a free, open-source **text and code editor for Mac**, built on the
+source code of [Notepad++](https://notepad-plus-plus.org/). If you are looking
+for a **Notepad++ alternative for macOS**, this is a native app — SwiftUI
+interface and the [Scintilla](https://www.scintilla.org/) editing engine, no
+Wine, no emulation. Signed and notarized by Apple.
+
+**[Download GNote++ for macOS (.dmg)](https://github.com/jcubillosz/gnote-plus-plus/releases/latest)**
+
+## Features
+
+- **Syntax highlighting** for every language Notepad++ supports, with its same
+  definitions and color themes; light and dark mode.
+- **Tabs, file tree and session restore**; open files reload when changed on
+  disk.
+- **Find and replace** with regular expressions, plus **find in files** across a
+  folder.
+- **Markdown editor with live preview** (GitHub Flavored Markdown: tables, task
+  lists, alerts), split view, outline, table formatting, image paste, print and
+  PDF export.
+- **Mermaid diagrams** in the Markdown preview (flowchart, sequence, class,
+  state, Gantt, pie, mind map…), exportable as PNG or SVG.
+- Notepad++ features: bookmarks, code folding, change history, brace and tag
+  matching, smart highlight, **multi-cursor and column editing**,
+  autocompletion, line operations, function list, **minimap**.
+- **Encoding and line-ending detection** (UTF-8, Latin-1, CRLF…) preserved on
+  save.
+- Per-document **edit lock** (read-only) and **spell checker** (English and
+  Spanish).
+- Interface in English and Spanish.
+
+GNote++ is not affiliated with or endorsed by Notepad++.
+
+---
+
+## Español
 
 Editor de texto nativo para macOS, basado en el código fuente de
 [Notepad++](https://notepad-plus-plus.org/).

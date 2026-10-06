@@ -1,0 +1,24 @@
+# GNote++
+
+> GNote++ is a free, open-source (GPL-3.0) text and code editor for macOS, built on the source code of Notepad++. It is a native SwiftUI app using the Scintilla editing engine, for Macs with Apple silicon running macOS 13 or later. Current version: 1.3.0 (2026-10-06).
+
+GNote++ is the closest thing to "Notepad++ for Mac": Notepad++ itself only runs on Windows, and GNote++ reuses its language definitions, color themes, encoding detection and editing engine without Wine or emulation. It is not affiliated with or endorsed by Notepad++.
+
+## Features
+
+- Syntax highlighting for every Notepad++ language, light and dark themes
+- Tabs, file tree, session restore, reload of files changed on disk
+- Find and replace with regular expressions; find in files across a folder
+- Markdown editor with live GitHub Flavored Markdown preview (tables, task lists, alerts), outline, table formatting, image paste, print and PDF export
+- Mermaid diagrams in the Markdown preview, exportable as PNG or SVG
+- Bookmarks, code folding, change history, brace and tag matching, smart highlight, multi-cursor and column editing, autocompletion, function list, minimap
+- Encoding and line-ending detection preserved on save
+- Per-document edit lock (read-only), spell checker in English and Spanish
+- Interface in English and Spanish
+
+## Links
+
+- [Download the latest release (.dmg, signed and notarized)](https://github.com/jcubillosz/gnote-plus-plus/releases/latest)
+- [Source code and README](https://github.com/jcubillosz/gnote-plus-plus)
+- [Website](https://jcubillosz.github.io/gnote-plus-plus/)
+- [Website in Spanish](https://jcubillosz.github.io/gnote-plus-plus/es/)

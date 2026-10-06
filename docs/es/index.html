@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GNote++ — Editor de texto y código para Mac basado en Notepad++</title>
+<meta name="description" content="GNote++ es un editor de texto y código gratuito y de código abierto para macOS, basado en el código de Notepad++: coloreado de sintaxis, vista previa de Markdown con diagramas Mermaid, buscar en archivos y minimapa. App nativa para Apple silicon.">
+<link rel="canonical" href="https://jcubillosz.github.io/gnote-plus-plus/es/">
+<link rel="alternate" hreflang="en" href="https://jcubillosz.github.io/gnote-plus-plus/">
+<link rel="alternate" hreflang="es" href="https://jcubillosz.github.io/gnote-plus-plus/es/">
+<link rel="alternate" hreflang="x-default" href="https://jcubillosz.github.io/gnote-plus-plus/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GNote++ — editor de texto y código nativo para Mac">
+<meta property="og:description" content="Editor gratuito y de código abierto para macOS basado en Notepad++. Coloreado de sintaxis, Markdown con Mermaid, buscar en archivos.">
+<meta property="og:url" content="https://jcubillosz.github.io/gnote-plus-plus/es/">
+<meta property="og:image" content="https://jcubillosz.github.io/gnote-plus-plus/og.png">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="../site.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "GNote++",
+  "inLanguage": "es",
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "Editor de texto",
+  "operatingSystem": "macOS 13 o superior (Apple silicon)",
+  "softwareVersion": "1.3.0",
+  "dateModified": "2026-10-06",
+  "description": "Editor de texto y código gratuito y de código abierto para macOS, basado en el código de Notepad++, con interfaz nativa en SwiftUI y el motor de edición Scintilla.",
+  "downloadUrl": "https://github.com/jcubillosz/gnote-plus-plus/releases/latest",
+  "url": "https://jcubillosz.github.io/gnote-plus-plus/es/",
+  "screenshot": "https://jcubillosz.github.io/gnote-plus-plus/screenshots/editor.png",
+  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Person", "name": "Jorge Cubillos", "url": "https://github.com/jcubillosz" },
+  "codeRepository": "https://github.com/jcubillosz/gnote-plus-plus"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "es",
+  "mainEntity": [
+    { "@type": "Question", "name": "¿Existe Notepad++ para Mac?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Notepad++ solo funciona en Windows. GNote++ es un editor gratuito y de código abierto para macOS basado en el código de Notepad++: usa sus mismas definiciones de lenguajes, sus temas de color y el motor de edición Scintilla, con una interfaz nativa de Mac." } },
+    { "@type": "Question", "name": "¿GNote++ es gratis?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Sí. Es gratuito y de código abierto, con licencia GPL-3.0." } },
+    { "@type": "Question", "name": "¿En qué Mac funciona GNote++?",
+      "acceptedAnswer": { "@type": "Answer", "text": "En Mac con Apple silicon (M1 o posterior) con macOS 13 Ventura o superior. La app está firmada y notarizada por Apple." } },
+    { "@type": "Question", "name": "¿GNote++ usa Wine o emulación?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Es una app nativa en SwiftUI. De Notepad++ solo se reutiliza su lógica de datos: la detección de codificación y las definiciones de lenguajes y temas." } },
+    { "@type": "Question", "name": "¿GNote++ está afiliado a Notepad++?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Es un proyecto independiente basado en el código abierto de Notepad++ y no cuenta con su respaldo." } }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="top">
+      <a class="brand" href="./">GNote++</a>
+      <nav aria-label="Sitio">
+        <a href="https://github.com/jcubillosz/gnote-plus-plus">GitHub</a>
+        <a href="../" hreflang="en" lang="en">English</a>
+      </nav>
+    </div>
+    <div class="pitch">
+      <h1>La forma de editar de Notepad++, como app nativa de Mac.</h1>
+      <p class="lede">GNote++ es un editor de texto y código gratuito y de código abierto para macOS, basado en el código de Notepad++. Los mismos lenguajes y temas, interfaz en SwiftUI, sin Wine.</p>
+      <a class="download" href="https://github.com/jcubillosz/gnote-plus-plus/releases/latest">Descargar para Mac</a>
+      <p class="fineprint">Versión 1.3.0. Requiere macOS 13 o superior en Apple silicon. Firmada y notarizada por Apple.</p>
+    </div>
+    <img class="shot-hero" src="../screenshots/editor.png" width="1600" height="1000" alt="GNote++ editando un archivo Swift, con árbol de archivos, pestañas, coloreado de sintaxis, plegado de código y minimapa">
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="after-hero" aria-labelledby="funciones">
+    <h2 id="funciones">Qué hace</h2>
+    <div class="groups">
+      <div>
+        <h3>Código</h3>
+        <ul>
+          <li><strong>Coloreado de sintaxis</strong> para todos los lenguajes de Notepad++, con sus temas en modo claro y oscuro.</li>
+          <li><strong>Multicursor y edición en columna</strong>, autocompletado, llaves y etiquetas pareadas.</li>
+          <li>Marcadores, plegado de código, historial de cambios y <strong>minimapa</strong>.</li>
+          <li>Lista de funciones del archivo abierto.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Markdown</h3>
+        <ul>
+          <li><strong>Vista previa en vivo</strong> compatible con GitHub: tablas, listas de tareas, alertas.</li>
+          <li><strong>Diagramas Mermaid</strong>, exportables como PNG o SVG.</li>
+          <li>Barra de formato, formateo de tablas, pegar imágenes, esquema.</li>
+          <li>Imprimir y exportar a PDF.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Archivos</h3>
+        <ul>
+          <li>Pestañas, árbol de archivos y <strong>buscar en archivos</strong> de una carpeta.</li>
+          <li>Buscar y reemplazar con <strong>expresiones regulares</strong>.</li>
+          <li><strong>Codificación y fin de línea</strong> detectados y conservados al guardar.</li>
+          <li>Recarga archivos cambiados en disco y restaura tu sesión.</li>
+          <li>Bloqueo de edición por documento y corrector ortográfico (español, inglés).</li>
+        </ul>
+      </div>
+    </div>
+
+    <figure>
+      <img src="../screenshots/markdown-mermaid.png" width="1600" height="1000" loading="lazy" alt="Archivo Markdown con vista previa en vivo: diagrama de flujo Mermaid, alerta, lista de tareas y esquema del documento">
+      <figcaption>Markdown con vista previa en vivo: diagramas Mermaid, alertas de GitHub y listas de tareas mientras escribes.</figcaption>
+    </figure>
+    <figure>
+      <img src="../screenshots/find-in-files.png" width="1600" height="1000" loading="lazy" alt="Resultados de buscar en archivos agrupados por archivo en la barra lateral">
+      <figcaption>Buscar en archivos recorre la carpeta abierta y agrupa las coincidencias por archivo.</figcaption>
+    </figure>
+  </section>
+
+  <section class="faq" aria-labelledby="preguntas">
+    <h2 id="preguntas">Preguntas</h2>
+    <dl>
+      <dt>¿Existe Notepad++ para Mac?</dt>
+      <dd>Notepad++ solo funciona en Windows. GNote++ lleva su motor de edición, sus definiciones de lenguajes y sus temas de color a macOS como app nativa.</dd>
+      <dt>¿Es gratis?</dt>
+      <dd>Sí. Gratuito y de código abierto, con licencia GPL-3.0.</dd>
+      <dt>¿En qué Mac funciona?</dt>
+      <dd>En Mac con Apple silicon (M1 o posterior) con macOS 13 Ventura o superior.</dd>
+      <dt>¿Usa Wine o emulación?</dt>
+      <dd>No. La interfaz está escrita en SwiftUI; el motor de texto es Scintilla, el mismo que usa Notepad++.</dd>
+      <dt>¿Está afiliado a Notepad++?</dt>
+      <dd>No. GNote++ es un proyecto independiente basado en el código abierto de Notepad++ y no cuenta con su respaldo.</dd>
+    </dl>
+  </section>
+
+  <section class="build" aria-labelledby="compilar">
+    <h2 id="compilar">Compilar desde el código</h2>
+    <p>GNote++ es un paquete de Swift Package Manager. Clona el repositorio completo y luego:</p>
+<pre><code>cd mac/NppMacPOC
+swift build
+./scripts/make_app_bundle.sh
+open .build/GNote++.app</code></pre>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p>GNote++ se apoya en <a href="https://notepad-plus-plus.org/">Notepad++</a> (Don Ho), <a href="https://www.scintilla.org/">Scintilla y Lexilla</a> (Neil Hodgson), uchardet, pugixml, cmark-gfm, Boost.Regex y Mermaid. No está afiliado a Notepad++ ni cuenta con su respaldo.</p>
+  <p>Licencia GPL-3.0. <a href="https://github.com/jcubillosz/gnote-plus-plus">Código fuente en GitHub</a>.</p>
+</footer>
+</body>
+</html>

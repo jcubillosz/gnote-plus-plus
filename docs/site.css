@@ -1,0 +1,156 @@
+:root {
+  --navy: #14213d;
+  --navy-deep: #0e182e;
+  --page: #f5f7fa;
+  --ink: #1b2230;
+  --muted: #5a6375;
+  --rule: #dfe3ea;
+  --mark: #f5c451;
+  --on-navy: #e9edf5;
+  --on-navy-muted: #a9b4c8;
+  font-size: 100%;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Schibsted Grotesk", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: inherit; text-underline-offset: 0.18em; }
+a:focus-visible, .download:focus-visible {
+  outline: 3px solid var(--mark);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.wrap {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding-inline: 1.25rem;
+}
+
+/* Franja superior: el azul marino es el del modo bloqueo de la app. */
+.hero {
+  background: var(--navy);
+  color: var(--on-navy);
+  padding-block: 1.25rem 0;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.95rem;
+}
+.brand { font-weight: 700; font-size: 1.15rem; text-decoration: none; }
+.top nav { display: flex; gap: 1.25rem; }
+.top nav a { color: var(--on-navy-muted); text-decoration: none; }
+.top nav a:hover { color: var(--on-navy); }
+
+.pitch {
+  padding-block: 4.5rem 3rem;
+  max-width: 40rem;
+}
+h1 {
+  font-size: clamp(2.3rem, 5.5vw, 3.9rem);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  font-weight: 800;
+  margin: 0 0 1.25rem;
+}
+.lede {
+  font-size: 1.2rem;
+  color: var(--on-navy-muted);
+  margin: 0 0 2rem;
+  max-width: 34rem;
+}
+
+.download {
+  display: inline-block;
+  background: var(--mark);
+  color: var(--navy-deep);
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+}
+.download:hover { background: #ffd56e; }
+.fineprint {
+  margin: 0.9rem 0 0;
+  font-size: 0.9rem;
+  color: var(--on-navy-muted);
+}
+
+/* La captura sobresale de la franja hacia el fondo claro. */
+.shot-hero {
+  margin: 0 auto -9rem;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 30px 60px -20px rgba(6, 12, 28, 0.55);
+  position: relative;
+}
+.after-hero { padding-top: 11rem; }
+
+h2 {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  margin: 0 0 1.5rem;
+}
+h3 { font-size: 1.15rem; margin: 0 0 0.6rem; }
+
+section { padding-block: 3.5rem; }
+section + section { border-top: 1px solid var(--rule); }
+
+.groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 2rem 3rem;
+}
+.groups ul { margin: 0; padding-left: 1.1rem; color: var(--muted); }
+.groups li { margin-bottom: 0.45rem; }
+.groups li strong { color: var(--ink); font-weight: 600; }
+
+figure { margin: 2.5rem 0 0; }
+figure img { border-radius: 10px; border: 1px solid var(--rule); }
+figcaption { margin-top: 0.7rem; color: var(--muted); font-size: 0.95rem; max-width: 60ch; }
+
+.faq dl { margin: 0; max-width: 46rem; }
+.faq dt { font-weight: 700; margin-top: 1.6rem; }
+.faq dt:first-child { margin-top: 0; }
+.faq dd { margin: 0.35rem 0 0; color: var(--muted); }
+
+.build pre {
+  background: var(--navy);
+  color: var(--on-navy);
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.95rem;
+}
+.build p { max-width: 46rem; color: var(--muted); }
+
+footer {
+  border-top: 1px solid var(--rule);
+  padding-block: 2rem 3rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+footer p { margin: 0 0 0.5rem; max-width: 60rem; }
+
+@media (max-width: 40rem) {
+  .pitch { padding-block: 3rem 2rem; }
+  .shot-hero { margin-bottom: -4rem; }
+  .after-hero { padding-top: 6rem; }
+  .top nav { gap: 0.9rem; }
+}

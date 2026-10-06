@@ -1,11 +1,12 @@
 :root {
   --navy: #14213d;
-  --navy-deep: #0e182e;
   --page: #f5f7fa;
   --ink: #1b2230;
-  --muted: #5a6375;
+  --muted: #566074;
   --rule: #dfe3ea;
-  --mark: #f5c451;
+  /* Verde de la "G" del logo, oscurecido para contraste AA con texto blanco. */
+  --brand: #187d00;
+  --brand-hover: #136400;
   --on-navy: #e9edf5;
   --on-navy-muted: #a9b4c8;
   font-size: 100%;
@@ -26,8 +27,8 @@ body {
 img { max-width: 100%; height: auto; display: block; }
 
 a { color: inherit; text-underline-offset: 0.18em; }
-a:focus-visible, .download:focus-visible {
-  outline: 3px solid var(--mark);
+a:focus-visible {
+  outline: 3px solid var(--brand);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -38,68 +39,84 @@ a:focus-visible, .download:focus-visible {
   padding-inline: 1.25rem;
 }
 
-/* Franja superior: el azul marino es el del modo bloqueo de la app. */
-.hero {
-  background: var(--navy);
-  color: var(--on-navy);
-  padding-block: 1.25rem 0;
-}
-
 .top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  padding-block: 1rem;
   font-size: 0.95rem;
 }
-.brand { font-weight: 700; font-size: 1.15rem; text-decoration: none; }
-.top nav { display: flex; gap: 1.25rem; }
-.top nav a { color: var(--on-navy-muted); text-decoration: none; }
-.top nav a:hover { color: var(--on-navy); }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  font-size: 1.15rem;
+  text-decoration: none;
+}
+.brand img { width: 2.25rem; height: 2.25rem; }
+.top nav { display: flex; gap: 1.25rem; flex-wrap: wrap; justify-content: flex-end; }
+.top nav a { color: var(--muted); text-decoration: none; }
+.top nav a:hover { color: var(--ink); }
 
 .pitch {
-  padding-block: 4.5rem 3rem;
-  max-width: 40rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3rem;
+  padding-block: 3rem 3.5rem;
 }
+.pitch-logo { width: 15rem; }
 h1 {
-  font-size: clamp(2.3rem, 5.5vw, 3.9rem);
+  font-size: clamp(2.3rem, 5.2vw, 3.8rem);
   line-height: 1.04;
   letter-spacing: -0.025em;
   font-weight: 800;
   margin: 0 0 1.25rem;
+  max-width: 15ch;
 }
 .lede {
   font-size: 1.2rem;
-  color: var(--on-navy-muted);
+  color: var(--muted);
   margin: 0 0 2rem;
-  max-width: 34rem;
+  max-width: 36rem;
 }
 
-.download {
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.button {
   display: inline-block;
-  background: var(--mark);
-  color: var(--navy-deep);
   font-weight: 700;
   font-size: 1.1rem;
-  padding: 0.85rem 1.5rem;
+  padding: 0.8rem 1.4rem;
   border-radius: 8px;
   text-decoration: none;
+  border: 2px solid var(--brand);
 }
-.download:hover { background: #ffd56e; }
+.button-primary { background: var(--brand); color: #fff; }
+.button-primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
+.button-secondary { color: var(--brand); background: transparent; }
+.button-secondary:hover { background: rgba(24, 125, 0, 0.08); }
 .fineprint {
   margin: 0.9rem 0 0;
   font-size: 0.9rem;
-  color: var(--on-navy-muted);
+  color: var(--muted);
 }
 
-/* La captura sobresale de la franja hacia el fondo claro. */
-.shot-hero {
-  margin: 0 auto -9rem;
-  border-radius: 12px 12px 0 0;
-  box-shadow: 0 30px 60px -20px rgba(6, 12, 28, 0.55);
-  position: relative;
+/* La captura principal se apoya sobre una franja marina que empieza a media altura. */
+.stage {
+  background: linear-gradient(to bottom, var(--page) 0 40%, var(--navy) 40% 100%);
+  padding-bottom: 3rem;
 }
-.after-hero { padding-top: 11rem; }
+.stage img {
+  border-radius: 12px;
+  box-shadow: 0 30px 60px -20px rgba(6, 12, 28, 0.55);
+}
+.stage p {
+  color: var(--on-navy-muted);
+  margin: 1rem 0 0;
+  font-size: 0.95rem;
+}
 
 h2 {
   font-size: clamp(1.6rem, 3vw, 2.2rem);
@@ -107,16 +124,19 @@ h2 {
   line-height: 1.15;
   margin: 0 0 1.5rem;
 }
-h3 { font-size: 1.15rem; margin: 0 0 0.6rem; }
+h3 { font-size: 1.15rem; margin: 0 0 0.5rem; }
 
 section { padding-block: 3.5rem; }
-section + section { border-top: 1px solid var(--rule); }
+main > section + section { border-top: 1px solid var(--rule); }
+
+.intro { color: var(--muted); max-width: 46rem; margin: -0.5rem 0 2rem; }
 
 .groups {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 2rem 3rem;
 }
+.groups p { margin: 0; color: var(--muted); }
 .groups ul { margin: 0; padding-left: 1.1rem; color: var(--muted); }
 .groups li { margin-bottom: 0.45rem; }
 .groups li strong { color: var(--ink); font-weight: 600; }
@@ -125,10 +145,25 @@ figure { margin: 2.5rem 0 0; }
 figure img { border-radius: 10px; border: 1px solid var(--rule); }
 figcaption { margin-top: 0.7rem; color: var(--muted); font-size: 0.95rem; max-width: 60ch; }
 
+.compare { overflow-x: auto; }
+.compare table { border-collapse: collapse; width: 100%; min-width: 36rem; }
+.compare th, .compare td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.75rem 1rem 0.75rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.compare thead th { font-size: 0.95rem; color: var(--muted); font-weight: 600; }
+.compare tbody th { font-weight: 600; width: 22%; }
+.compare td { color: var(--muted); }
+.compare td:last-child { color: var(--ink); }
+
 .faq dl { margin: 0; max-width: 46rem; }
 .faq dt { font-weight: 700; margin-top: 1.6rem; }
 .faq dt:first-child { margin-top: 0; }
 .faq dd { margin: 0.35rem 0 0; color: var(--muted); }
+
+.support p { max-width: 46rem; color: var(--muted); margin: 0 0 1.5rem; }
 
 .build pre {
   background: var(--navy);
@@ -148,9 +183,8 @@ footer {
 }
 footer p { margin: 0 0 0.5rem; max-width: 60rem; }
 
-@media (max-width: 40rem) {
-  .pitch { padding-block: 3rem 2rem; }
-  .shot-hero { margin-bottom: -4rem; }
-  .after-hero { padding-top: 6rem; }
-  .top nav { gap: 0.9rem; }
+@media (max-width: 44rem) {
+  .pitch { grid-template-columns: 1fr; gap: 1.5rem; padding-block: 1.5rem 2.5rem; }
+  .pitch-logo { width: 8rem; order: -1; }
+  .stage { background: linear-gradient(to bottom, var(--page) 0 30%, var(--navy) 30% 100%); }
 }

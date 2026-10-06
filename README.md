@@ -1,62 +1,108 @@
-# GNote++ — native text & code editor for macOS
+<p align="center"><img src="docs/logo.png" width="160" alt="GNote++ logo"></p>
+
+# GNote++ — Markdown and code editor for macOS
 
 [![Latest release](https://img.shields.io/github/v/release/jcubillosz/gnote-plus-plus)](https://github.com/jcubillosz/gnote-plus-plus/releases/latest)
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-native-black)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
+[![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-0070ba)](https://www.paypal.com/donate/?hosted_button_id=Q2E7M3ZS53NF8)
 
-**English** · [Español](#español)
+**English** · [Español](#español) · [Website](https://jcubillosz.github.io/gnote-plus-plus/)
 
-GNote++ is a free, open-source **text and code editor for Mac**, built on the
-source code of [Notepad++](https://notepad-plus-plus.org/). If you are looking
-for a **Notepad++ alternative for macOS**, this is a native app — SwiftUI
-interface and the [Scintilla](https://www.scintilla.org/) editing engine, no
+GNote++ is a free, open-source **Markdown and code editor for Mac**, built on
+the source code of [Notepad++](https://notepad-plus-plus.org/). Write **AI
+prompts, docs and web content** with a live preview and **Mermaid diagrams**,
+on top of the [Scintilla](https://www.scintilla.org/) editing engine and the
+syntax highlighting of every Notepad++ language. A native SwiftUI app — no
 Wine, no emulation. Signed and notarized by Apple.
 
 **[Download GNote++ for macOS (.dmg)](https://github.com/jcubillosz/gnote-plus-plus/releases/latest)**
 
-![GNote++ code editor on macOS with file tree, tabs, syntax highlighting and minimap](docs/screenshots/editor.png)
+![GNote++ Markdown editor with live preview, Mermaid flowchart, GitHub alert, task list and document outline](docs/screenshots/markdown-mermaid.png)
 
-## Features
+## Who it's for
+
+- **Prompt engineers** — system prompts, prompt libraries, `CLAUDE.md` and
+  `AGENTS.md` are Markdown. See them rendered as you write, navigate them from
+  the outline, sketch agent flows in Mermaid, and lock a finished prompt
+  against accidental edits.
+- **Web and content editors** — posts and pages for Markdown-based sites;
+  pasted images are saved next to the file; GitHub-style preview.
+- **Technical writers** — READMEs, runbooks and docs with alerts, task lists,
+  diagrams (PNG/SVG export) and PDF export.
+- **Developers** — every Notepad++ language, regex search, find in files,
+  multi-cursor editing, minimap.
+
+## Markdown, done properly
+
+- **Editor, split or preview-only view**; double-click the preview to jump to
+  the source line.
+- **GitHub Flavored Markdown**: tables, task lists you can tick in the preview,
+  alerts (`> [!NOTE]`, `[!WARNING]`…), strikethrough, autolinks.
+- **Mermaid diagrams** (flowchart, sequence, class, state, Gantt, pie, mind
+  map…) with templates; export as PNG or SVG.
+- Syntax-highlighted code blocks in the preview, formatting toolbar, list
+  continuation, table formatting (⌥⌘T), image paste and drag-and-drop.
+- Heading outline in the sidebar; print and PDF export; spell checker (English
+  and Spanish).
+- **Private by design**: the preview runs no JavaScript and diagrams render
+  offline.
+
+## And a full code editor
 
 - **Syntax highlighting** for every language Notepad++ supports, with its same
   definitions and color themes; light and dark mode.
-- **Tabs, file tree and session restore**; open files reload when changed on
-  disk.
+- Bookmarks, code folding, change history, brace and tag matching, smart
+  highlight, **multi-cursor and column editing**, autocompletion, line
+  operations, function list, **minimap**.
 - **Find and replace** with regular expressions, plus **find in files** across a
   folder.
-- **Markdown editor with live preview** (GitHub Flavored Markdown: tables, task
-  lists, alerts), split view, outline, table formatting, image paste, print and
-  PDF export.
-- **Mermaid diagrams** in the Markdown preview (flowchart, sequence, class,
-  state, Gantt, pie, mind map…), exportable as PNG or SVG.
-- Notepad++ features: bookmarks, code folding, change history, brace and tag
-  matching, smart highlight, **multi-cursor and column editing**,
-  autocompletion, line operations, function list, **minimap**.
 - **Encoding and line-ending detection** (UTF-8, Latin-1, CRLF…) preserved on
-  save.
-- Per-document **edit lock** (read-only) and **spell checker** (English and
-  Spanish).
+  save; tabs, file tree, session restore, reload of files changed on disk.
 - Interface in English and Spanish.
 
-![Markdown editor with live preview, Mermaid flowchart, GitHub alert, task list and document outline](docs/screenshots/markdown-mermaid.png)
+![GNote++ code editor on macOS with file tree, tabs, syntax highlighting and minimap](docs/screenshots/editor.png)
 
 ![Find in files: search results grouped by file in the sidebar](docs/screenshots/find-in-files.png)
 
+## How it differs from Notepad++
+
+| | Notepad++ | GNote++ |
+|---|---|---|
+| Runs on | Windows | macOS, native app |
+| Markdown | Syntax highlighting; preview via third-party plugins | Built-in live preview, Mermaid, outline, toolbar, PDF export |
+| Languages and themes | Notepad++ definitions | The same definitions and themes |
+| Editing engine | Scintilla | Scintilla |
+| License | GPL-3.0, free | GPL-3.0, free |
+
 GNote++ is not affiliated with or endorsed by Notepad++.
+
+## Support the project
+
+GNote++ is free and built in spare time. If it saves you time, a
+[donation via PayPal](https://www.paypal.com/donate/?hosted_button_id=Q2E7M3ZS53NF8)
+helps keep it maintained and pays for the Apple developer account that lets it
+open without security warnings.
 
 ---
 
 ## Español
 
-Editor de texto nativo para macOS, basado en el código fuente de
-[Notepad++](https://notepad-plus-plus.org/).
+GNote++ es un **editor de Markdown y código, gratuito, de código abierto para
+macOS**, basado en el código fuente de [Notepad++](https://notepad-plus-plus.org/).
+Pensado para escribir **prompts de IA, documentación y contenido web** con
+vista previa en vivo y **diagramas Mermaid**, sobre el motor de edición y el
+coloreado de sintaxis de Notepad++.
 
 No es un port de la interfaz Win32 ni una capa de compatibilidad: la UI está
 escrita de cero en SwiftUI y usa [Scintilla](https://www.scintilla.org/) como
 componente de edición. Lo que se reutiliza de Notepad++ es su lógica de datos —
 la detección de codificación (uchardet) y las definiciones de lenguajes y temas
 (`langs.model.xml`, `stylers.model.xml`).
+
+[Sitio web en español](https://jcubillosz.github.io/gnote-plus-plus/es/) ·
+[Donar con PayPal](https://www.paypal.com/donate/?hosted_button_id=Q2E7M3ZS53NF8)
 
 ---
 

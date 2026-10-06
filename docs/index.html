@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GNote++ — Free Notepad++-based text and code editor for Mac</title>
-<meta name="description" content="GNote++ is a free, open-source text and code editor for macOS built on Notepad++ source code: syntax highlighting, Markdown preview with Mermaid diagrams, find in files, minimap. Native SwiftUI app for Apple silicon.">
+<title>GNote++ — Free Markdown and code editor for Mac, built on Notepad++</title>
+<meta name="description" content="GNote++ is a free, open-source Markdown and code editor for macOS: live preview with Mermaid diagrams for AI prompts, docs and web content, on top of Notepad++'s editing engine and syntax highlighting. Native app for Apple silicon.">
 <link rel="canonical" href="https://jcubillosz.github.io/gnote-plus-plus/">
 <link rel="alternate" hreflang="en" href="https://jcubillosz.github.io/gnote-plus-plus/">
 <link rel="alternate" hreflang="es" href="https://jcubillosz.github.io/gnote-plus-plus/es/">
 <link rel="alternate" hreflang="x-default" href="https://jcubillosz.github.io/gnote-plus-plus/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="GNote++ — native text and code editor for Mac">
-<meta property="og:description" content="Free, open-source editor for macOS built on Notepad++ source. Syntax highlighting, Markdown with Mermaid, find in files.">
+<meta property="og:title" content="GNote++ — Markdown and code editor for Mac">
+<meta property="og:description" content="Free, open-source Markdown and code editor for macOS. Live preview, Mermaid diagrams, built on Notepad++.">
 <meta property="og:url" content="https://jcubillosz.github.io/gnote-plus-plus/">
 <meta property="og:image" content="https://jcubillosz.github.io/gnote-plus-plus/og.png">
 <meta property="og:locale" content="en_US">
@@ -29,27 +29,30 @@
   "@type": "SoftwareApplication",
   "name": "GNote++",
   "applicationCategory": "DeveloperApplication",
-  "applicationSubCategory": "Text editor",
+  "applicationSubCategory": "Markdown and code editor",
   "operatingSystem": "macOS 13 or later (Apple silicon)",
   "softwareVersion": "1.3.0",
   "dateModified": "2026-10-06",
-  "description": "Free, open-source text and code editor for macOS built on Notepad++ source code, with a native SwiftUI interface and the Scintilla editing engine.",
+  "description": "Free, open-source Markdown and code editor for macOS built on Notepad++ source code: live Markdown preview with Mermaid diagrams for AI prompts, documentation and web content, plus syntax highlighting for every Notepad++ language.",
   "downloadUrl": "https://github.com/jcubillosz/gnote-plus-plus/releases/latest",
   "url": "https://jcubillosz.github.io/gnote-plus-plus/",
-  "screenshot": "https://jcubillosz.github.io/gnote-plus-plus/screenshots/editor.png",
+  "image": "https://jcubillosz.github.io/gnote-plus-plus/logo.png",
+  "screenshot": "https://jcubillosz.github.io/gnote-plus-plus/screenshots/markdown-mermaid.png",
   "license": "https://www.gnu.org/licenses/gpl-3.0.html",
   "isAccessibleForFree": true,
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "author": { "@type": "Person", "name": "Jorge Cubillos", "url": "https://github.com/jcubillosz" },
   "codeRepository": "https://github.com/jcubillosz/gnote-plus-plus",
   "featureList": [
-    "Syntax highlighting for all Notepad++ languages",
     "Markdown live preview with GitHub Flavored Markdown",
     "Mermaid diagrams with PNG and SVG export",
+    "Markdown outline, formatting toolbar and table formatting",
+    "Print and export Markdown to PDF",
+    "Syntax highlighting for all Notepad++ languages",
     "Find and replace with regular expressions",
     "Find in files",
-    "Minimap",
     "Multi-cursor and column editing",
+    "Minimap",
     "Encoding and line-ending detection",
     "Spell checker in English and Spanish"
   ]
@@ -60,14 +63,16 @@
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
+    { "@type": "Question", "name": "How is GNote++ different from Notepad++?",
+      "acceptedAnswer": { "@type": "Answer", "text": "GNote++ runs natively on macOS and adds a full Markdown editor: live preview, Mermaid diagrams, document outline, formatting toolbar, GitHub alerts and task lists, and PDF export. It keeps Notepad++'s editing engine, language definitions and color themes. Notepad++ only runs on Windows and edits Markdown as highlighted plain text." } },
+    { "@type": "Question", "name": "Is GNote++ a good editor for AI prompts?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Prompts, system prompts and agent instruction files such as CLAUDE.md or AGENTS.md are usually Markdown. GNote++ previews them as you write, shows their structure in an outline, draws Mermaid diagrams of agent flows, and keeps everything on your Mac." } },
     { "@type": "Question", "name": "Is there a Notepad++ for Mac?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Notepad++ itself only runs on Windows. GNote++ is a free, open-source macOS editor built on Notepad++ source code: it uses the same language definitions, color themes and Scintilla editing engine, with a native Mac interface." } },
+      "acceptedAnswer": { "@type": "Answer", "text": "Notepad++ itself only runs on Windows. GNote++ is a free, open-source macOS editor built on Notepad++ source code, with a native Mac interface." } },
     { "@type": "Question", "name": "Is GNote++ free?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Yes. GNote++ is free and open source under the GPL-3.0 license." } },
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. GNote++ is free and open source under the GPL-3.0 license. Donations through PayPal are welcome." } },
     { "@type": "Question", "name": "Which Macs does GNote++ run on?",
       "acceptedAnswer": { "@type": "Answer", "text": "Macs with Apple silicon (M1 or later) running macOS 13 Ventura or later. The app is signed and notarized by Apple." } },
-    { "@type": "Question", "name": "Does GNote++ use Wine or emulation?",
-      "acceptedAnswer": { "@type": "Answer", "text": "No. It is a native SwiftUI app. Only Notepad++'s data logic is reused: encoding detection and the language and theme definitions." } },
     { "@type": "Question", "name": "Is GNote++ affiliated with Notepad++?",
       "acceptedAnswer": { "@type": "Answer", "text": "No. GNote++ is an independent project based on Notepad++'s open-source code and is not endorsed by Notepad++." } }
   ]
@@ -75,62 +80,99 @@
 </script>
 </head>
 <body>
-<header class="hero">
+<header>
   <div class="wrap">
     <div class="top">
-      <a class="brand" href="./">GNote++</a>
+      <a class="brand" href="./"><img src="logo.png" width="36" height="36" alt="">GNote++</a>
       <nav aria-label="Site">
         <a href="https://github.com/jcubillosz/gnote-plus-plus">GitHub</a>
+        <a href="#support">Donate</a>
         <a href="es/" hreflang="es" lang="es">Español</a>
       </nav>
     </div>
     <div class="pitch">
-      <h1>The Notepad++ way of editing, as a native Mac app.</h1>
-      <p class="lede">GNote++ is a free, open-source text and code editor for macOS, built on the source code of Notepad++. Same languages and themes, a SwiftUI interface, no Wine.</p>
-      <a class="download" href="https://github.com/jcubillosz/gnote-plus-plus/releases/latest">Download for Mac</a>
-      <p class="fineprint">Version 1.3.0. Requires macOS 13 or later on Apple silicon. Signed and notarized by Apple.</p>
+      <div>
+        <h1>The Markdown editor for people who also write code.</h1>
+        <p class="lede">GNote++ is a free, open-source Markdown and code editor for macOS. Write prompts, docs and web content with a live preview and Mermaid diagrams, on top of the editing engine and syntax highlighting of Notepad++.</p>
+        <div class="actions">
+          <a class="button button-primary" href="https://github.com/jcubillosz/gnote-plus-plus/releases/latest">Download for Mac</a>
+        </div>
+        <p class="fineprint">Version 1.3.0. Requires macOS 13 or later on Apple silicon. Signed and notarized by Apple.</p>
+      </div>
+      <img class="pitch-logo" src="logo.png" width="240" height="240" alt="GNote++ logo: a black cat holding a sheet of paper with the GNote++ name">
     </div>
-    <img class="shot-hero" src="screenshots/editor.png" width="1600" height="1000" alt="GNote++ editing a Swift file, with file tree, tabs, syntax highlighting, code folding and minimap">
+  </div>
+  <div class="stage">
+    <div class="wrap">
+      <img src="screenshots/markdown-mermaid.png" width="1600" height="1000" alt="GNote++ editing a Markdown file with live preview: a Mermaid flowchart, a tip alert, a task list and the document outline">
+      <p>Markdown source on the left, live preview on the right, outline in the sidebar.</p>
+    </div>
   </div>
 </header>
 
 <main class="wrap">
-  <section class="after-hero" aria-labelledby="features">
-    <h2 id="features">What it does</h2>
+  <section aria-labelledby="who">
+    <h2 id="who">Who it's for</h2>
     <div class="groups">
       <div>
-        <h3>Code</h3>
-        <ul>
-          <li><strong>Syntax highlighting</strong> for every language Notepad++ supports, with its themes in light and dark mode.</li>
-          <li><strong>Multi-cursor and column editing</strong>, autocompletion, brace and tag matching.</li>
-          <li>Bookmarks, code folding, change history and a <strong>minimap</strong>.</li>
-          <li>Function list for the open file.</li>
-        </ul>
+        <h3>Prompt engineers</h3>
+        <p>System prompts, prompt libraries, CLAUDE.md and AGENTS.md files are Markdown. See them rendered as you write, jump between sections from the outline, sketch agent flows in Mermaid, and lock a finished prompt so it can't change by accident.</p>
       </div>
       <div>
-        <h3>Markdown</h3>
-        <ul>
-          <li><strong>Live preview</strong> with GitHub Flavored Markdown: tables, task lists, alerts.</li>
-          <li><strong>Mermaid diagrams</strong>, exportable as PNG or SVG.</li>
-          <li>Formatting toolbar, table formatting, pasted images, outline.</li>
-          <li>Print and export to PDF.</li>
-        </ul>
+        <h3>Web and content editors</h3>
+        <p>Draft blog posts and pages for Markdown-based sites. Paste or drag images and they're saved next to the file; tables line up with one shortcut; the preview matches GitHub's rendering.</p>
       </div>
       <div>
-        <h3>Files</h3>
-        <ul>
-          <li>Tabs, file tree and <strong>find in files</strong> across a folder.</li>
-          <li>Find and replace with <strong>regular expressions</strong>.</li>
-          <li><strong>Encoding and line endings</strong> detected and kept on save.</li>
-          <li>Reloads files changed on disk; restores your session.</li>
-          <li>Per-document edit lock and spell checker (English, Spanish).</li>
-        </ul>
+        <h3>Technical writers</h3>
+        <p>READMEs, runbooks and docs with GitHub alerts, task lists and diagrams. Export diagrams as PNG or SVG, and print or save the whole document as PDF.</p>
+      </div>
+      <div>
+        <h3>Developers</h3>
+        <p>The same file can be Python, YAML or SQL: every language Notepad++ highlights, regex search, find in files, multi-cursor editing and a minimap.</p>
       </div>
     </div>
+  </section>
 
+  <section aria-labelledby="markdown">
+    <h2 id="markdown">Markdown, done properly</h2>
+    <div class="groups">
+      <ul>
+        <li><strong>Three views</strong>: editor, split, or preview only. Double-click the preview to jump to that line in the source.</li>
+        <li><strong>GitHub Flavored Markdown</strong>: tables, task lists you can tick in the preview, alerts, strikethrough, autolinks.</li>
+        <li><strong>Code blocks</strong> highlighted in the preview with the same themes as the editor.</li>
+      </ul>
+      <ul>
+        <li><strong>Mermaid diagrams</strong>: flowcharts, sequence, class, state, Gantt, pie, mind maps. Start from templates; export as PNG or SVG.</li>
+        <li><strong>Formatting toolbar</strong>, lists that continue on Enter, table formatting.</li>
+        <li><strong>Outline</strong> of headings in the sidebar.</li>
+      </ul>
+      <ul>
+        <li><strong>Print and PDF</strong> with proper page breaks.</li>
+        <li><strong>Spell checker</strong> in English and Spanish.</li>
+        <li><strong>Private by design</strong>: the preview runs no scripts and diagrams render offline.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section aria-labelledby="code">
+    <h2 id="code">And a full code editor</h2>
+    <div class="groups">
+      <ul>
+        <li><strong>Syntax highlighting</strong> for every language Notepad++ supports, with its themes in light and dark mode.</li>
+        <li><strong>Multi-cursor and column editing</strong>, autocompletion, brace and tag matching.</li>
+      </ul>
+      <ul>
+        <li>Bookmarks, code folding, change history, function list and a <strong>minimap</strong>.</li>
+        <li>Find and replace with <strong>regular expressions</strong>; <strong>find in files</strong> across a folder.</li>
+      </ul>
+      <ul>
+        <li><strong>Encoding and line endings</strong> detected and kept on save.</li>
+        <li>Tabs, file tree, session restore, reload of files changed on disk.</li>
+      </ul>
+    </div>
     <figure>
-      <img src="screenshots/markdown-mermaid.png" width="1600" height="1000" loading="lazy" alt="Markdown file with live preview showing a Mermaid flowchart, a tip alert, a task list and the document outline">
-      <figcaption>Markdown with live preview: Mermaid diagrams, GitHub alerts and task lists render as you type.</figcaption>
+      <img src="screenshots/editor.png" width="1600" height="1000" loading="lazy" alt="GNote++ editing a Swift file with file tree, tabs, syntax highlighting, code folding and minimap">
+      <figcaption>Code editing with the file tree, folding and minimap.</figcaption>
     </figure>
     <figure>
       <img src="screenshots/find-in-files.png" width="1600" height="1000" loading="lazy" alt="Find in files results grouped by file in the sidebar">
@@ -138,20 +180,43 @@
     </figure>
   </section>
 
+  <section aria-labelledby="vs">
+    <h2 id="vs">GNote++ and Notepad++</h2>
+    <p class="intro">GNote++ starts from Notepad++'s source code and keeps what makes it good. What it adds is a Mac interface and a real Markdown workflow.</p>
+    <div class="compare">
+      <table>
+        <thead><tr><th scope="col"></th><th scope="col">Notepad++</th><th scope="col">GNote++</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Runs on</th><td>Windows</td><td>macOS, native app</td></tr>
+          <tr><th scope="row">Markdown</th><td>Syntax highlighting; preview through third-party plugins</td><td>Built-in live preview, Mermaid diagrams, outline, toolbar, PDF export</td></tr>
+          <tr><th scope="row">Languages and themes</th><td>Notepad++ definitions</td><td>The same definitions and themes</td></tr>
+          <tr><th scope="row">Editing engine</th><td>Scintilla</td><td>Scintilla</td></tr>
+          <tr><th scope="row">License</th><td>GPL-3.0, free</td><td>GPL-3.0, free</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="faq" aria-labelledby="faq">
     <h2 id="faq">Questions</h2>
     <dl>
+      <dt>Is it a good editor for AI prompts?</dt>
+      <dd>Yes. Prompts and agent instruction files are usually Markdown, and GNote++ previews them as you write, shows their structure and keeps everything on your Mac.</dd>
       <dt>Is there a Notepad++ for Mac?</dt>
       <dd>Notepad++ itself only runs on Windows. GNote++ brings its editing engine, language definitions and color themes to macOS as a native app.</dd>
       <dt>Is it free?</dt>
       <dd>Yes. Free and open source under the GPL-3.0 license.</dd>
       <dt>Which Macs does it run on?</dt>
       <dd>Macs with Apple silicon (M1 or later) running macOS 13 Ventura or later.</dd>
-      <dt>Does it use Wine or emulation?</dt>
-      <dd>No. The interface is written in SwiftUI; the text engine is Scintilla, the same one Notepad++ uses.</dd>
       <dt>Is it affiliated with Notepad++?</dt>
       <dd>No. GNote++ is an independent project based on Notepad++'s open-source code and is not endorsed by it.</dd>
     </dl>
+  </section>
+
+  <section class="support" id="support" aria-labelledby="support-title">
+    <h2 id="support-title">Support the project</h2>
+    <p>GNote++ is free and built in spare time. If it saves you time, a donation helps keep it maintained and pays for the Apple developer account that lets it open without security warnings.</p>
+    <a class="button button-secondary" href="https://www.paypal.com/donate/?hosted_button_id=Q2E7M3ZS53NF8">Donate with PayPal</a>
   </section>
 
   <section class="build" aria-labelledby="build">

@@ -30,6 +30,17 @@ final class Document: Identifiable {
     /// el suyo: NSSpellChecker usa el tag para recordar "ignorar esta palabra" por
     /// documento, y compartir uno entre pestañas mezclaría esas decisiones.
     let spellDocumentTag: Int = NSSpellChecker.uniqueSpellDocumentTag()
+    /// Idioma del corrector detectado para este documento en modo "auto" ("es"/"en") y el
+    /// largo del documento al detectarlo — ver SpellChecker.resolvedLanguage.
+    var detectedSpellLanguage: String?
+    var detectedSpellLanguageLength = 0
+    /// Stamp del archivo en disco al abrir/guardar/recargar (ver ExternalFileChanges.swift).
+    var diskStamp: FileStamp?
+    /// El archivo se borró o se movió desde afuera; guardar lo vuelve a crear.
+    var missingOnDisk = false
+    /// Cambió en disco mientras la pestaña estaba inactiva: se resuelve al activarla.
+    var needsReload = false
+    var pendingExternalConflict = false
 
     init(
         pointer: sptr_t,
@@ -61,7 +72,9 @@ struct ViewState: Codable, Equatable {
 }
 
 final class TabsViewModel: ObservableObject {
-    @Published private(set) var documents: [Document] = []
+    @Published private(set) var documents: [Document] = [] {
+        didSet { updateWatchedFolders() }
+    }
     @Published private(set) var activeIndex: Int?
 
     let editor: ScintillaView
@@ -70,9 +83,19 @@ final class TabsViewModel: ObservableObject {
     let find = FindViewModel()
     let preview = MarkdownPreviewViewModel()
     let spellCheck = SpellCheckViewModel()
+    let outline = OutlineViewModel()
+    let findInFiles = FindInFilesViewModel()
     let recentFiles: RecentPathsViewModel
     private(set) var currentTheme: EditorTheme = .light
     private var untitledCounter = 0
+    /// Observa las carpetas de los documentos abiertos (ExternalFileChanges.swift).
+    var openFilesWatcher: OpenFilesWatcher?
+    var watchedFolders: [String] = []
+    /// Evita apilar alertas de "cambió en disco" mientras una ya está abierta.
+    var isPresentingExternalChangeAlert = false
+
+    /// Minimapa: un ScintillaView aparte que comparte el documento del editor.
+    lazy var documentMap = DocumentMapView(editor: editor)
 
     init(editor: ScintillaView, preferences: EditorPreferences, recentFiles: RecentPathsViewModel) {
         self.editor = editor
@@ -139,6 +162,7 @@ final class TabsViewModel: ObservableObject {
             eol: file.eol,
             locked: LockedFiles.isLocked(url)
         )
+        activeDocument?.diskStamp = FileStamp.of(url)
         recentFiles.add(url)
         return true
     }
@@ -213,6 +237,7 @@ final class TabsViewModel: ObservableObject {
         // Sin esto, Cmd+Z justo después de abrir vacía el documento recién cargado: para
         // Scintilla, cargar texto es "una edición más" y queda en el buffer de undo.
         _ = ScintillaView.directCall(editor, message: SCI_EMPTYUNDOBUFFER, wParam: 0, lParam: 0)
+        resetChangeHistory(editor)
         _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
     }
 
@@ -224,6 +249,14 @@ final class TabsViewModel: ObservableObject {
         saveViewStateOfActive()
         activeIndex = index
         attachToEditor(documents[index])
+        resolveDeferredExternalChange(of: documents[index])
+    }
+
+    /// Pestaña siguiente (+1) o anterior (−1), con vuelta al principio/final.
+    func activateAdjacent(_ offset: Int) {
+        guard !documents.isEmpty else { return }
+        let current = activeIndex ?? 0
+        activate(at: ((current + offset) % documents.count + documents.count) % documents.count)
     }
 
     func close(at index: Int) {
@@ -276,7 +309,7 @@ final class TabsViewModel: ObservableObject {
         }
     }
 
-    private func publishFileInfo(of document: Document) {
+    func publishFileInfo(of document: Document) {
         statusBar.encoding = document.encodingName
         statusBar.encodingNote = document.encodingNote
         statusBar.eol = document.eol.displayName
@@ -312,12 +345,15 @@ final class TabsViewModel: ObservableObject {
         // dejaron los colores "normales" puestos, así que el tinte de bloqueo pisa encima
         // sin que un cambio de tema/lenguaje/preferencias lo pierda. Si el documento no
         // está bloqueado, no se toca nada más — los colores de arriba son el resultado final.
+        // La minimapa copia los estilos del lenguaje y el tema: son de cada vista, no del
+        // documento compartido.
+        documentMap.applyStyle(profile: activeDocument?.languageProfile, theme: currentTheme, fontName: preferences.fontName)
         if activeDocument?.isLocked == true {
             applyLockTint(editor, theme: currentTheme)
         }
     }
 
-    private func syncDirtyFlagOfActiveDocument() {
+    func syncDirtyFlagOfActiveDocument() {
         guard let document = activeDocument else { return }
         document.isDirty = ScintillaView.directCall(editor, message: SCI_GETMODIFY, wParam: 0, lParam: 0) != 0
     }
@@ -420,6 +456,7 @@ final class TabsViewModel: ObservableObject {
         guard write(document: document, to: url) else { return }
         document.url = url
         document.displayName = url.lastPathComponent
+        updateWatchedFolders()
         recentFiles.add(url)
         // Guardar-como un documento bloqueado tiene que persistir la ruta nueva: si ya
         // tenía una ruta bloqueada, la migra; si era un "Nuevo" bloqueado solo para la
@@ -515,10 +552,69 @@ final class TabsViewModel: ObservableObject {
         return destination
     }
 
+    /// Mueve un archivo o carpeta a otra carpeta (arrastrar en el árbol o "Mover a…"), con las
+    /// mismas reglas que renameItem: nunca sobrescribe y reapunta las pestañas afectadas.
+    /// Devuelve la URL destino, o nil si no se movió (ya se mostró el alert si correspondía).
+    @discardableResult
+    func moveItem(at url: URL, toFolder folder: URL) -> URL? {
+        guard let destination = transferDestination(for: url, in: folder, verb: L("mover")) else { return nil }
+        var isDirectoryFlag: ObjCBool = false
+        FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectoryFlag)
+        do {
+            try FileManager.default.moveItem(at: url, to: destination)
+        } catch {
+            presentAlert(L("No se pudo mover \(url.lastPathComponent)."), detail: error.localizedDescription)
+            return nil
+        }
+        rebaseOpenTabs(from: url, to: destination, isDirectory: isDirectoryFlag.boolValue)
+        objectWillChange.send()
+        return destination
+    }
+
+    /// Copia un archivo o carpeta a otra carpeta (soltar desde Finder sobre el árbol, igual
+    /// que Finder entre volúmenes). Nunca sobrescribe.
+    @discardableResult
+    func copyItem(at url: URL, toFolder folder: URL) -> URL? {
+        guard let destination = transferDestination(for: url, in: folder, verb: L("copiar")) else { return nil }
+        do {
+            try FileManager.default.copyItem(at: url, to: destination)
+        } catch {
+            presentAlert(L("No se pudo copiar \(url.lastPathComponent)."), detail: error.localizedDescription)
+            return nil
+        }
+        return destination
+    }
+
+    /// Destino válido para mover/copiar `url` dentro de `folder`, o nil. Misma carpeta = no
+    /// hacer nada en silencio; una carpeta dentro de sí misma o de un descendiente, o un
+    /// nombre ya existente en el destino, se rechazan con alerta.
+    private func transferDestination(for url: URL, in folder: URL, verb: String) -> URL? {
+        let source = url.standardizedFileURL
+        let target = folder.standardizedFileURL
+        guard source.deletingLastPathComponent().path != target.path else { return nil }
+        if target.path == source.path || target.path.hasPrefix(source.path + "/") {
+            presentAlert(
+                L("No se puede \(verb) \(source.lastPathComponent) dentro de sí misma."),
+                detail: L("Elige una carpeta que no esté dentro de la carpeta que mueves.")
+            )
+            return nil
+        }
+        let destination = target.appendingPathComponent(source.lastPathComponent)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            presentAlert(
+                L("Ya existe \(source.lastPathComponent) en \(target.lastPathComponent)."),
+                detail: L("No se sobrescriben archivos; renombra uno de los dos primero.")
+            )
+            return nil
+        }
+        return destination
+    }
+
     /// Reapunta toda pestaña abierta afectada por un rename/move en disco. Archivo: solo la
     /// pestaña con esa URL exacta. Carpeta: toda pestaña cuya ruta viva bajo ella — se compara
     /// el prefijo sobre standardizedFileURL.path para no depender de cómo haya llegado la URL.
     private func rebaseOpenTabs(from old: URL, to new: URL, isDirectory: Bool) {
+        defer { updateWatchedFolders() }
         if isDirectory {
             let oldPrefix = old.standardizedFileURL.path + "/"
             // Migra TODO path bloqueado bajo la carpeta vieja, no solo el de las pestañas
@@ -567,6 +663,22 @@ final class TabsViewModel: ObservableObject {
     /// Devuelve true sólo si el archivo quedó escrito en disco.
     @discardableResult
     private func write(document: Document, to url: URL) -> Bool {
+        // Otro programa modificó el archivo desde que se abrió/guardó acá: sin esto, guardar
+        // pisaba sus cambios sin aviso.
+        if document.url == url, !document.missingOnDisk, let recorded = document.diskStamp,
+           let current = FileStamp.of(url), current != recorded,
+           !confirmAction(
+               message: L("\(document.displayName) cambió en disco desde que lo abriste."),
+               detail: L("Otro programa lo modificó. Si lo sobrescribes, esos cambios se pierden."),
+               confirmTitle: L("Sobrescribir")
+           ) {
+            return false
+        }
+        // Markdown no: dos espacios al final de línea son un salto de línea.
+        if preferences.trimTrailingWhitespaceOnSave, !document.isLocked,
+           document.languageProfile.lexerName != "markdown" {
+            trimTrailingWhitespace(editor)
+        }
         let text = currentText(editor)
         guard let data = encode(text, for: document) else { return false }
         do {
@@ -574,6 +686,8 @@ final class TabsViewModel: ObservableObject {
             // un error de I/O a mitad de camino deja el archivo original truncado y
             // su contenido anterior perdido.
             try data.write(to: url, options: .atomic)
+            document.diskStamp = FileStamp.of(url)
+            document.missingOnDisk = false
             document.isDirty = false
             _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
             // Mismo motivo que en setActiveDirty(): sin esto, el punto de la pestaña
@@ -655,6 +769,21 @@ final class TabsViewModel: ObservableObject {
         alert.runModal()
     }
 
+    // MARK: - Convertir fin de línea
+
+    /// Convierte todos los fines de línea del documento activo y fija el modo para las líneas
+    /// nuevas (Notepad++: IDM_FORMAT_TODOS/TOUNIX/TOMAC). Una sola acción de undo; marca el
+    /// documento como modificado por la vía normal (SCN_SAVEPOINTLEFT).
+    func convertActiveEOL(to eol: EOLMode) {
+        guard let document = activeDocument, !document.isLocked else { return }
+        _ = ScintillaView.directCall(editor, message: SCI_BEGINUNDOACTION, wParam: 0, lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_CONVERTEOLS, wParam: uptr_t(eol.rawValue), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_ENDUNDOACTION, wParam: 0, lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETEOLMODE, wParam: uptr_t(eol.rawValue), lParam: 0)
+        document.eol = eol
+        publishFileInfo(of: document)
+    }
+
     // MARK: - Recargar con encoding forzado (relee del disco, no reinterpreta en memoria)
 
     func reload(activeDocumentWithEncoding encodingName: String) {
@@ -688,6 +817,8 @@ final class TabsViewModel: ObservableObject {
         // Mismo motivo que en appendAndActivate: sin esto, Cmd+Z después de recargar
         // vaciaría el documento en vez de deshacer una edición real.
         _ = ScintillaView.directCall(editor, message: SCI_EMPTYUNDOBUFFER, wParam: 0, lParam: 0)
+        resetChangeHistory(editor)
+        document.diskStamp = FileStamp.of(url)
         document.isDirty = false
         _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
     }
@@ -735,6 +866,14 @@ final class TabsViewModel: ObservableObject {
         }
         if let selection = globalStyle(name: "Selected text colour", theme: theme), let back = selection.back {
             _ = ScintillaView.directCall(editor, message: SCI_SETSELBACK, wParam: 1, lParam: back)
+        }
+        applyBookmarkAndFoldColors(editor, theme: theme)
+        if let brace = globalStyle(name: "Brace highlight style", theme: theme) {
+            setStyle(editor, STYLE_BRACELIGHT, fore: brace.fore, back: brace.back)
+            _ = ScintillaView.directCall(editor, message: SCI_STYLESETBOLD, wParam: uptr_t(STYLE_BRACELIGHT), lParam: 1)
+        }
+        if let bad = globalStyle(name: "Bad brace colour", theme: theme) {
+            setStyle(editor, STYLE_BRACEBAD, fore: bad.fore, back: bad.back)
         }
         if let caret = globalStyle(name: "Caret colour", theme: theme) {
             // SetCaretFore=2069(colour fore,) — el color va en wParam, no en lParam (confirmado

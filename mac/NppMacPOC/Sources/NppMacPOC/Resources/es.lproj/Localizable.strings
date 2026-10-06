@@ -142,8 +142,190 @@
 "No se pudo escribir en %@." = "No se pudo escribir en %@.";
 "No se pudo crear la carpeta." = "No se pudo crear la carpeta.";
 "Sin sugerencias" = "Sin sugerencias";
-"Aprender palabra" = "Aprender palabra";
+"Agregar al diccionario" = "Agregar al diccionario";
 "Ignorar" = "Ignorar";
 "Cortar" = "Cortar";
 "Copiar" = "Copiar";
 "Pegar" = "Pegar";
+
+/* Esquema de secciones Markdown */
+"Archivos" = "Archivos";
+"Esquema" = "Esquema";
+"Sin títulos" = "Sin títulos";
+"El esquema está disponible para documentos Markdown" = "El esquema está disponible para documentos Markdown";
+"Mostrar esquema" = "Mostrar esquema";
+
+/* Operaciones de línea y smart highlight */
+"Operaciones de línea" = "Operaciones de línea";
+"Duplicar línea" = "Duplicar línea";
+"Eliminar línea" = "Eliminar línea";
+"Mover línea arriba" = "Mover línea arriba";
+"Mover línea abajo" = "Mover línea abajo";
+"Unir líneas" = "Unir líneas";
+"Ordenar líneas (A→Z)" = "Ordenar líneas (A→Z)";
+"Ordenar líneas (Z→A)" = "Ordenar líneas (Z→A)";
+"Quitar duplicadas consecutivas" = "Quitar duplicadas consecutivas";
+"Quitar todas las duplicadas" = "Quitar todas las duplicadas";
+"Quitar líneas vacías" = "Quitar líneas vacías";
+"Convertir mayúsculas/minúsculas" = "Convertir mayúsculas/minúsculas";
+"MAYÚSCULAS" = "MAYÚSCULAS";
+"minúsculas" = "minúsculas";
+"Tipo Título" = "Tipo Título";
+"Comentar/descomentar" = "Comentar/descomentar";
+"Resaltar coincidencias de la selección" = "Resaltar coincidencias de la selección";
+
+/* Cambios externos en disco */
+"Otro programa lo modificó. Si lo sobrescribes, esos cambios se pierden." = "Otro programa lo modificó. Si lo sobrescribes, esos cambios se pierden.";
+"Sobrescribir" = "Sobrescribir";
+"Otro programa cambió el archivo y tú tienes cambios sin guardar. ¿Recargarlo y perder tus cambios?" = "Otro programa cambió el archivo y tú tienes cambios sin guardar. ¿Recargarlo y perder tus cambios?";
+"Recargar" = "Recargar";
+"Mantener los míos" = "Mantener los míos";
+"eliminado del disco" = "eliminado del disco";
+
+/* Cambios externos en disco (interpolados) */
+"%@ cambió en disco desde que lo abriste." = "%@ cambió en disco desde que lo abriste.";
+"%@ se modificó en disco." = "%@ se modificó en disco.";
+
+/* Marcadores y plegado */
+"Marcadores" = "Marcadores";
+"Alternar marcador" = "Alternar marcador";
+"Siguiente marcador" = "Siguiente marcador";
+"Marcador anterior" = "Marcador anterior";
+"Borrar todos los marcadores" = "Borrar todos los marcadores";
+"Margen de plegado" = "Margen de plegado";
+"Plegar todo" = "Plegar todo";
+"Desplegar todo" = "Desplegar todo";
+
+/* Zoom y fin de línea */
+"Convertir fin de línea a Windows (CRLF)" = "Convertir fin de línea a Windows (CRLF)";
+"Convertir fin de línea a Unix (LF)" = "Convertir fin de línea a Unix (LF)";
+"Convertir fin de línea a Mac clásico (CR)" = "Convertir fin de línea a Mac clásico (CR)";
+"Acercar" = "Acercar";
+"Alejar" = "Alejar";
+"Tamaño real" = "Tamaño real";
+
+/* Selección múltiple */
+"Selección múltiple" = "Selección múltiple";
+"Agregar siguiente coincidencia" = "Agregar siguiente coincidencia";
+"Seleccionar todas las coincidencias" = "Seleccionar todas las coincidencias";
+"Agregar cursor arriba" = "Agregar cursor arriba";
+"Agregar cursor abajo" = "Agregar cursor abajo";
+
+/* Autocompletado */
+"Autocompletar" = "Autocompletar";
+
+/* Buscar en archivos */
+"Buscar en archivos…" = "Buscar en archivos…";
+"Buscar en archivos" = "Buscar en archivos";
+"Coincidir mayúsculas y minúsculas" = "Coincidir mayúsculas y minúsculas";
+"Palabra completa" = "Palabra completa";
+"Abre una carpeta para buscar en archivos" = "Abre una carpeta para buscar en archivos";
+"Expresión regular no válida" = "Expresión regular no válida";
+"Buscando…" = "Buscando…";
+"%lld coincidencias en %lld archivos" = "%lld coincidencias en %lld archivos";
+"se muestran las primeras %lld" = "se muestran las primeras %lld";
+
+/* Lista de funciones */
+"Sin funciones" = "Sin funciones";
+"Sin reglas de esquema para este lenguaje" = "Sin reglas de esquema para este lenguaje";
+
+/* Barra de pestañas desbordada */
+"Pestaña siguiente" = "Pestaña siguiente";
+"Pestaña anterior" = "Pestaña anterior";
+"Desplazar pestañas a la izquierda" = "Desplazar pestañas a la izquierda";
+"Desplazar pestañas a la derecha" = "Desplazar pestañas a la derecha";
+"Todas las pestañas" = "Todas las pestañas";
+
+/* Mover/copiar en el árbol */
+"mover" = "mover";
+"copiar" = "copiar";
+"No se pudo mover %@." = "No se pudo mover %@.";
+"No se pudo copiar %@." = "No se pudo copiar %@.";
+"No se puede %@ %@ dentro de sí misma." = "No se puede %@ %@ dentro de sí misma.";
+"Elige una carpeta que no esté dentro de la carpeta que mueves." = "Elige una carpeta que no esté dentro de la carpeta que mueves.";
+"Ya existe %@ en %@." = "Ya existe %@ en %@.";
+"No se sobrescriben archivos; renombra uno de los dos primero." = "No se sobrescriben archivos; renombra uno de los dos primero.";
+"Mover a…" = "Mover a…";
+"Mover aquí" = "Mover aquí";
+"Mover %@ a…" = "Mover %@ a…";
+
+/* Minimapa */
+"Mostrar minimapa" = "Mostrar minimapa";
+
+/* Vista: extras de edición */
+"Historial de cambios en el margen" = "Historial de cambios en el margen";
+"Autocerrar paréntesis y comillas" = "Autocerrar paréntesis y comillas";
+"Recortar espacios finales al guardar" = "Recortar espacios finales al guardar";
+
+/* Editar: Markdown */
+"Formatear tabla Markdown" = "Formatear tabla Markdown";
+
+/* Markdown: alertas e imágenes */
+"Nota" = "Nota";
+"Consejo" = "Consejo";
+"Importante" = "Importante";
+"Advertencia" = "Advertencia";
+"Precaución" = "Precaución";
+"Guarda el documento antes de pegar una imagen." = "Guarda el documento antes de pegar una imagen.";
+"La imagen se guarda en una carpeta "images" junto al archivo Markdown." = "La imagen se guarda en una carpeta "images" junto al archivo Markdown.";
+"No se pudo guardar la imagen pegada." = "No se pudo guardar la imagen pegada.";
+
+/* Markdown: toolbar ampliada */
+"Guarda el documento antes de insertar una imagen." = "Guarda el documento antes de insertar una imagen.";
+"Las imágenes de fuera de la carpeta del documento se copian a una carpeta "images" junto al archivo Markdown." = "Las imágenes de fuera de la carpeta del documento se copian a una carpeta "images" junto al archivo Markdown.";
+"No se pudo copiar la imagen." = "No se pudo copiar la imagen.";
+"Insertar casilla de verificación" = "Insertar casilla de verificación";
+"Marcar/desmarcar casilla" = "Marcar/desmarcar casilla";
+"Insertar lista o casilla" = "Insertar lista o casilla";
+"Bloque de código" = "Bloque de código";
+"Insertar cita, código o alerta" = "Insertar cita, código o alerta";
+"Insertar tabla" = "Insertar tabla";
+"Alinear columna a la izquierda" = "Alinear columna a la izquierda";
+"Centrar columna" = "Centrar columna";
+"Alinear columna a la derecha" = "Alinear columna a la derecha";
+"Quitar alineación de columna" = "Quitar alineación de columna";
+"Tabla" = "Tabla";
+
+/* Mermaid */
+"No se encontró mermaid.min.js" = "No se encontró mermaid.min.js";
+"Mermaid no devolvió un diagrama" = "Mermaid no devolvió un diagrama";
+"Diagrama Mermaid" = "Diagrama Mermaid";
+
+/* Barra de formato Markdown */
+"Diagrama de flujo: formas" = "Diagrama de flujo: formas";
+"Diagrama de flujo: decisión" = "Diagrama de flujo: decisión";
+"Secuencia" = "Secuencia";
+"Clases" = "Clases";
+"Estados" = "Estados";
+"Entidad-relación" = "Entidad-relación";
+"Gantt" = "Gantt";
+"Gráfico de torta" = "Gráfico de torta";
+"Recorrido de usuario" = "Recorrido de usuario";
+"Mapa mental" = "Mapa mental";
+"Línea de tiempo" = "Línea de tiempo";
+"Ramas de Git" = "Ramas de Git";
+"Formato" = "Formato";
+"Listas" = "Listas";
+"Citas y alertas" = "Citas y alertas";
+"Imagen" = "Imagen";
+"Código" = "Código";
+"Diagramas" = "Diagramas";
+"Insertar diagrama Mermaid" = "Insertar diagrama Mermaid";
+
+/* Mermaid: exportar */
+"Guardar diagrama como PNG…" = "Guardar diagrama como PNG…";
+"Guardar diagrama como SVG…" = "Guardar diagrama como SVG…";
+"Copiar diagrama como imagen" = "Copiar diagrama como imagen";
+"El cursor no está dentro de un bloque ```mermaid." = "El cursor no está dentro de un bloque ```mermaid.";
+"El diagrama tiene errores." = "El diagrama tiene errores.";
+"No se pudo generar la imagen del diagrama." = "No se pudo generar la imagen del diagrama.";
+"Insertar o exportar diagrama Mermaid" = "Insertar o exportar diagrama Mermaid";
+
+/* Preview: menú imagen */
+"Esta imagen no es un diagrama Mermaid." = "Esta imagen no es un diagrama Mermaid.";
+
+/* Archivo */
+"Ajustar página…" = "Ajustar página…";
+
+/* Mermaid */
+"El diagrama es demasiado grande." = "El diagrama es demasiado grande.";

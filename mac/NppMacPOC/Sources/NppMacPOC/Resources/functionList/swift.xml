@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Regla propia de GNote++ (Notepad++ no trae una para Swift). Mismo formato que el resto
+     de functionList/*.xml: classRange = tipos con cuerpo entre llaves; function suelta =
+     funciones de nivel superior. -->
+<NotepadPlus>
+	<functionList>
+		<parser
+			displayName="Swift"
+			id         ="swift_syntax"
+			commentExpr="(?s:/\*.*?\*/)|(?m-s://.*?$)|(?s:&quot;&quot;&quot;.*?&quot;&quot;&quot;)"
+		>
+			<classRange
+				mainExpr    ="^\h*(?:(?:public|private|fileprivate|internal|open|final|indirect|@\w+(?:\([^)]*\))?)\s+)*(?:class|struct|enum|actor|extension|protocol)\s+[\w.]+[^{\n]*\{"
+				openSymbole ="\{"
+				closeSymbole="\}"
+			>
+				<className>
+					<nameExpr expr="(?:class|struct|enum|actor|extension|protocol)\s+[\w.]+" />
+					<nameExpr expr="[\w.]+$" />
+				</className>
+				<function
+					mainExpr="^\h*(?:(?:public|private|fileprivate|internal|open|final|override|static|class|mutating|nonmutating|convenience|required|dynamic|lazy|weak|unowned|@\w+(?:\([^)]*\))?)\s+)*(?:func\s+\S+?\s*(?:&lt;[^&gt;{]*&gt;)?\s*\(|init[?!]?\s*\(|deinit\b|subscript\s*\()"
+				>
+					<functionName>
+						<funcNameExpr expr="(?:func\s+\K\S+?(?=\s*[&lt;(])|init[?!]?|deinit|subscript)" />
+					</functionName>
+				</function>
+			</classRange>
+			<function
+				mainExpr="^(?:(?:public|private|fileprivate|internal|@\w+(?:\([^)]*\))?)\s+)*func\s+\S+?\s*(?:&lt;[^&gt;{]*&gt;)?\s*\("
+			>
+				<functionName>
+					<nameExpr expr="func\s+\K\S+?(?=\s*[&lt;(])" />
+				</functionName>
+			</function>
+		</parser>
+	</functionList>
+</NotepadPlus>

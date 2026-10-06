@@ -142,8 +142,190 @@
 "No se pudo escribir en %@." = "Could not write to %@.";
 "No se pudo crear la carpeta." = "Could not create the folder.";
 "Sin sugerencias" = "No suggestions";
-"Aprender palabra" = "Learn Word";
+"Agregar al diccionario" = "Add to Dictionary";
 "Ignorar" = "Ignore";
 "Cortar" = "Cut";
 "Copiar" = "Copy";
 "Pegar" = "Paste";
+
+/* Esquema de secciones Markdown */
+"Archivos" = "Files";
+"Esquema" = "Outline";
+"Sin títulos" = "No headings";
+"El esquema está disponible para documentos Markdown" = "The outline is available for Markdown documents";
+"Mostrar esquema" = "Show Outline";
+
+/* Operaciones de línea y smart highlight */
+"Operaciones de línea" = "Line Operations";
+"Duplicar línea" = "Duplicate Line";
+"Eliminar línea" = "Delete Line";
+"Mover línea arriba" = "Move Line Up";
+"Mover línea abajo" = "Move Line Down";
+"Unir líneas" = "Join Lines";
+"Ordenar líneas (A→Z)" = "Sort Lines (A→Z)";
+"Ordenar líneas (Z→A)" = "Sort Lines (Z→A)";
+"Quitar duplicadas consecutivas" = "Remove Consecutive Duplicates";
+"Quitar todas las duplicadas" = "Remove All Duplicates";
+"Quitar líneas vacías" = "Remove Empty Lines";
+"Convertir mayúsculas/minúsculas" = "Convert Case";
+"MAYÚSCULAS" = "UPPERCASE";
+"minúsculas" = "lowercase";
+"Tipo Título" = "Title Case";
+"Comentar/descomentar" = "Toggle Comment";
+"Resaltar coincidencias de la selección" = "Highlight Matches of Selection";
+
+/* Cambios externos en disco */
+"Otro programa lo modificó. Si lo sobrescribes, esos cambios se pierden." = "Another program changed it. If you overwrite it, those changes will be lost.";
+"Sobrescribir" = "Overwrite";
+"Otro programa cambió el archivo y tú tienes cambios sin guardar. ¿Recargarlo y perder tus cambios?" = "Another program changed the file and you have unsaved changes. Reload it and lose your changes?";
+"Recargar" = "Reload";
+"Mantener los míos" = "Keep Mine";
+"eliminado del disco" = "deleted from disk";
+
+/* Cambios externos en disco (interpolados) */
+"%@ cambió en disco desde que lo abriste." = "%@ changed on disk since you opened it.";
+"%@ se modificó en disco." = "%@ was modified on disk.";
+
+/* Marcadores y plegado */
+"Marcadores" = "Bookmarks";
+"Alternar marcador" = "Toggle Bookmark";
+"Siguiente marcador" = "Next Bookmark";
+"Marcador anterior" = "Previous Bookmark";
+"Borrar todos los marcadores" = "Clear All Bookmarks";
+"Margen de plegado" = "Fold Margin";
+"Plegar todo" = "Fold All";
+"Desplegar todo" = "Unfold All";
+
+/* Zoom y fin de línea */
+"Convertir fin de línea a Windows (CRLF)" = "Convert Line Endings to Windows (CRLF)";
+"Convertir fin de línea a Unix (LF)" = "Convert Line Endings to Unix (LF)";
+"Convertir fin de línea a Mac clásico (CR)" = "Convert Line Endings to Classic Mac (CR)";
+"Acercar" = "Zoom In";
+"Alejar" = "Zoom Out";
+"Tamaño real" = "Actual Size";
+
+/* Selección múltiple */
+"Selección múltiple" = "Multiple Selection";
+"Agregar siguiente coincidencia" = "Add Next Occurrence";
+"Seleccionar todas las coincidencias" = "Select All Occurrences";
+"Agregar cursor arriba" = "Add Cursor Above";
+"Agregar cursor abajo" = "Add Cursor Below";
+
+/* Autocompletado */
+"Autocompletar" = "Autocomplete";
+
+/* Buscar en archivos */
+"Buscar en archivos…" = "Find in Files…";
+"Buscar en archivos" = "Find in files";
+"Coincidir mayúsculas y minúsculas" = "Match case";
+"Palabra completa" = "Whole word";
+"Abre una carpeta para buscar en archivos" = "Open a folder to search its files";
+"Expresión regular no válida" = "Invalid regular expression";
+"Buscando…" = "Searching…";
+"%lld coincidencias en %lld archivos" = "%lld matches in %lld files";
+"se muestran las primeras %lld" = "showing the first %lld";
+
+/* Lista de funciones */
+"Sin funciones" = "No functions";
+"Sin reglas de esquema para este lenguaje" = "No outline rules for this language";
+
+/* Barra de pestañas desbordada */
+"Pestaña siguiente" = "Next Tab";
+"Pestaña anterior" = "Previous Tab";
+"Desplazar pestañas a la izquierda" = "Scroll tabs left";
+"Desplazar pestañas a la derecha" = "Scroll tabs right";
+"Todas las pestañas" = "All tabs";
+
+/* Mover/copiar en el árbol */
+"mover" = "move";
+"copiar" = "copy";
+"No se pudo mover %@." = "Could not move %@.";
+"No se pudo copiar %@." = "Could not copy %@.";
+"No se puede %@ %@ dentro de sí misma." = "Cannot %@ %@ into itself.";
+"Elige una carpeta que no esté dentro de la carpeta que mueves." = "Choose a folder that is not inside the folder you are moving.";
+"Ya existe %@ en %@." = "%@ already exists in %@.";
+"No se sobrescriben archivos; renombra uno de los dos primero." = "Files are never overwritten; rename one of them first.";
+"Mover a…" = "Move To…";
+"Mover aquí" = "Move Here";
+"Mover %@ a…" = "Move %@ to…";
+
+/* Minimapa */
+"Mostrar minimapa" = "Show Minimap";
+
+/* Vista: extras de edición */
+"Historial de cambios en el margen" = "Change history in margin";
+"Autocerrar paréntesis y comillas" = "Auto-close brackets and quotes";
+"Recortar espacios finales al guardar" = "Trim trailing whitespace on save";
+
+/* Editar: Markdown */
+"Formatear tabla Markdown" = "Format Markdown table";
+
+/* Markdown: alertas e imágenes */
+"Nota" = "Note";
+"Consejo" = "Tip";
+"Importante" = "Important";
+"Advertencia" = "Warning";
+"Precaución" = "Caution";
+"Guarda el documento antes de pegar una imagen." = "Save the document before pasting an image.";
+"La imagen se guarda en una carpeta "images" junto al archivo Markdown." = "The image is saved in an "images" folder next to the Markdown file.";
+"No se pudo guardar la imagen pegada." = "Could not save the pasted image.";
+
+/* Markdown: toolbar ampliada */
+"Guarda el documento antes de insertar una imagen." = "Save the document before inserting an image.";
+"Las imágenes de fuera de la carpeta del documento se copian a una carpeta "images" junto al archivo Markdown." = "Images from outside the document folder are copied to an "images" folder next to the Markdown file.";
+"No se pudo copiar la imagen." = "Could not copy the image.";
+"Insertar casilla de verificación" = "Insert checkbox";
+"Marcar/desmarcar casilla" = "Toggle checkbox";
+"Insertar lista o casilla" = "Insert list or checkbox";
+"Bloque de código" = "Code block";
+"Insertar cita, código o alerta" = "Insert quote, code or alert";
+"Insertar tabla" = "Insert table";
+"Alinear columna a la izquierda" = "Align column left";
+"Centrar columna" = "Center column";
+"Alinear columna a la derecha" = "Align column right";
+"Quitar alineación de columna" = "Remove column alignment";
+"Tabla" = "Table";
+
+/* Mermaid */
+"No se encontró mermaid.min.js" = "mermaid.min.js not found";
+"Mermaid no devolvió un diagrama" = "Mermaid returned no diagram";
+"Diagrama Mermaid" = "Mermaid diagram";
+
+/* Barra de formato Markdown */
+"Diagrama de flujo: formas" = "Flowchart: shapes";
+"Diagrama de flujo: decisión" = "Flowchart: decision";
+"Secuencia" = "Sequence";
+"Clases" = "Class";
+"Estados" = "State";
+"Entidad-relación" = "Entity-relationship";
+"Gantt" = "Gantt";
+"Gráfico de torta" = "Pie chart";
+"Recorrido de usuario" = "User journey";
+"Mapa mental" = "Mind map";
+"Línea de tiempo" = "Timeline";
+"Ramas de Git" = "Git graph";
+"Formato" = "Format";
+"Listas" = "Lists";
+"Citas y alertas" = "Quotes & alerts";
+"Imagen" = "Image";
+"Código" = "Code";
+"Diagramas" = "Diagrams";
+"Insertar diagrama Mermaid" = "Insert Mermaid diagram";
+
+/* Mermaid: exportar */
+"Guardar diagrama como PNG…" = "Save diagram as PNG…";
+"Guardar diagrama como SVG…" = "Save diagram as SVG…";
+"Copiar diagrama como imagen" = "Copy diagram as image";
+"El cursor no está dentro de un bloque ```mermaid." = "The cursor is not inside a ```mermaid block.";
+"El diagrama tiene errores." = "The diagram has errors.";
+"No se pudo generar la imagen del diagrama." = "Could not create the diagram image.";
+"Insertar o exportar diagrama Mermaid" = "Insert or export Mermaid diagram";
+
+/* Preview: menú imagen */
+"Esta imagen no es un diagrama Mermaid." = "This image is not a Mermaid diagram.";
+
+/* Archivo */
+"Ajustar página…" = "Page Setup…";
+
+/* Mermaid */
+"El diagrama es demasiado grande." = "The diagram is too large.";

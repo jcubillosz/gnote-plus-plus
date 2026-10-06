@@ -15,9 +15,12 @@ struct ContentView: View {
     // Mismo motivo: SpellCheckViewModel es otro ObservableObject anidado — sin esto,
     // togglear "Revisar ortografía"/idioma desde el menú no dispararía onChange acá.
     @ObservedObject var spellCheck: SpellCheckViewModel
+    // Mismo motivo: OutlineViewModel es otro ObservableObject anidado en TabsViewModel.
+    @ObservedObject var outline: OutlineViewModel
     @ObservedObject var recentFiles: RecentPathsViewModel
     @ObservedObject var recentFolders: RecentPathsViewModel
-    let preferences: EditorPreferences
+    // Observado: el toggle de la minimapa cambia el layout del editor.
+    @ObservedObject var preferences: EditorPreferences
     @Environment(\.colorScheme) private var colorScheme
     // Colapsado al iniciar: sin carpeta abierta, el panel solo ocupa espacio vacío.
     @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
@@ -34,6 +37,7 @@ struct ContentView: View {
     // DispatchWorkItem por disparador y se cancela el anterior, mismo patrón que
     // MarkdownPreview.scheduleRefresh/scheduleScrollSync.
     @State private var pendingSpellCheck: DispatchWorkItem?
+    @State private var pendingSmartHighlight: DispatchWorkItem?
     /// Task 12: borde de acento mientras se arrastra algo de Finder sobre la ventana.
     @State private var isDropTargeted = false
 
@@ -43,9 +47,17 @@ struct ContentView: View {
         self.find = tabs.find
         self.preview = tabs.preview
         self.spellCheck = tabs.spellCheck
+        self.outline = tabs.outline
         self.recentFiles = recentFiles
         self.recentFolders = recentFolders
         self.preferences = preferences
+    }
+
+    /// "GNote++ — archivo.md", con • si tiene cambios sin guardar. Aprovecha el espacio del
+    /// título de la ventana, que solo mostraba el nombre de la app.
+    private var windowTitle: String {
+        guard let document = tabs.activeDocument else { return "GNote++" }
+        return "GNote++ — \(document.displayName)\(document.isDirty ? " •" : "")"
     }
 
     private var actions: DocumentActions {
@@ -59,10 +71,23 @@ struct ContentView: View {
                 // solo se hace el move + rebase de pestañas y se propaga el resultado para
                 // que Task 6 pueda abrir el archivo recién creado tras su rename inicial.
                 tabs.renameItem(at: url, to: newName)
-            })
+            }, onMove: { tabs.moveItem(at: $0, toFolder: $1) },
+            onCopy: { tabs.copyItem(at: $0, toFolder: $1) },
+            outline: outline, statusBar: tabs.statusBar, onJumpToLine: { jumpToOutlineLine($0) },
+            findInFiles: tabs.findInFiles,
+            findOverrides: { unsavedActiveText() },
+            onOpenMatch: { url, line, byteStart, byteLength in openFindMatch(url: url, line: line, byteStart: byteStart, byteLength: byteLength) })
         } detail: {
             VStack(spacing: 0) {
+                // Prioridad de layout: el editor es flexible y nunca debe comprimir la barra
+                // de pestañas (alto fijo) cuando el VStack recalcula alturas.
+                if tabs.activeDocumentIsMarkdown {
+                    MarkdownFormatBar(tabs: tabs)
+                        .layoutPriority(1)
+                    Divider()
+                }
                 TabBarView(tabs: tabs)
+                    .layoutPriority(1)
                 Divider()
                 if tabs.activeDocument != nil {
                     editorArea
@@ -90,6 +115,7 @@ struct ContentView: View {
                 }
             }
         }
+        .navigationTitle(windowTitle)
         .toolbar {
             ToolbarItemGroup {
                 Button { tabs.newDocument() } label: { Image(systemName: "doc.badge.plus") }
@@ -152,49 +178,6 @@ struct ContentView: View {
                     .help(L("Sincronizar scroll"))
                     .foregroundStyle(preview.syncScroll ? Color.accentColor : Color.primary)
 
-                    Menu {
-                        Button(L("Título 1")) { insertMarkdownHeading(level: 1, editor: tabs.editor) }
-                        Button(L("Título 2")) { insertMarkdownHeading(level: 2, editor: tabs.editor) }
-                        Button(L("Título 3")) { insertMarkdownHeading(level: 3, editor: tabs.editor) }
-                        Divider()
-                        Button(L("Negrita")) { insertMarkdownBold(editor: tabs.editor) }
-                        Button(L("Cursiva")) { insertMarkdownItalic(editor: tabs.editor) }
-                        Button(L("Tachado")) { insertMarkdownStrikethrough(editor: tabs.editor) }
-                        Button(L("Código en línea")) { insertMarkdownInlineCode(editor: tabs.editor) }
-                    } label: {
-                        Image(systemName: "textformat.size")
-                    }
-                    .help(L("Insertar título"))
-                    .disabled(tabs.activeDocument?.isLocked == true)
-
-                    Menu {
-                        Button(L("Lista con viñeta")) { insertMarkdownBulletList(editor: tabs.editor) }
-                        Button(L("Lista numerada")) { insertMarkdownNumberedList(editor: tabs.editor) }
-                        Button(L("Lista de tareas")) { insertMarkdownChecklist(editor: tabs.editor) }
-                        Button(L("Cita")) { insertMarkdownBlockquote(editor: tabs.editor) }
-                    } label: {
-                        Image(systemName: "list.bullet")
-                    }
-                    .help(L("Insertar lista o cita"))
-                    .disabled(tabs.activeDocument?.isLocked == true)
-
-                    Button {
-                        insertMarkdownTable(editor: tabs.editor)
-                    } label: { Image(systemName: "tablecells") }
-                    .help(L("Insertar tabla"))
-                    .disabled(tabs.activeDocument?.isLocked == true)
-
-                    Button {
-                        insertMarkdownImage(editor: tabs.editor, document: tabs.activeDocument)
-                    } label: { Image(systemName: "photo") }
-                    .help(L("Insertar imagen"))
-                    .disabled(tabs.activeDocument?.isLocked == true)
-
-                    Button {
-                        insertMarkdownCodeBlock(editor: tabs.editor)
-                    } label: { Image(systemName: "chevron.left.forwardslash.chevron.right") }
-                    .help(L("Insertar bloque de código"))
-                    .disabled(tabs.activeDocument?.isLocked == true)
                 }
             }
         }
@@ -214,6 +197,14 @@ struct ContentView: View {
             // los squiggles de la pestaña anterior seguirían pintados sobre el documento
             // nuevo hasta la próxima revisión si no se limpian y recalculan ahora mismo.
             scheduleSpellCheck()
+            outline.refreshNow(editor: tabs.editor, profile: tabs.activeDocument?.languageProfile)
+            scheduleSmartHighlight()
+        }
+        .onChange(of: windowTitle) { _ in
+            updateRepresentedURL()
+        }
+        .onChange(of: outline.showRequestToken) { _ in
+            columnVisibility = .all
         }
         .onChange(of: spellCheck.enabled) { enabled in
             if enabled {
@@ -239,10 +230,27 @@ struct ContentView: View {
         .onAppear {
             tabs.applyTheme(editorTheme(for: colorScheme))
             preview.onJumpToSourceLine = { line in jumpToSourceLine(line) }
+            MarkdownImages.installPasteMonitor(tabs: tabs)
+            preview.onToggleTask = { line in
+                guard tabs.activeDocument?.isLocked == false,
+                      MarkdownEditing.toggleTask(editor: tabs.editor, line: line - 1) else {
+                    NSSound.beep()
+                    return
+                }
+            }
             refreshPreview()
             applyFocusForCurrentMode()
             scheduleSpellCheck()
+            outline.refreshNow(editor: tabs.editor, profile: tabs.activeDocument?.languageProfile)
+            deferPastCurrentLayoutPass { updateRepresentedURL() }
         }
+    }
+
+    /// Ícono proxy del archivo activo en la barra de título (cmd+click muestra la ruta, se
+    /// puede arrastrar). Vía NSWindow y no .navigationDocument: ese modificador reemplaza el
+    /// título por el nombre del archivo y se perdería el "GNote++ — " de windowTitle.
+    private func updateRepresentedURL() {
+        tabs.editor.window?.representedURL = tabs.activeDocument?.url
     }
 
     /// Único punto que decide el first responder según el modo EFECTIVO (mode +
@@ -278,52 +286,70 @@ struct ContentView: View {
 
     @ViewBuilder
     private var editorArea: some View {
-        // editorView NUNCA puede vivir dentro de una rama if/else: aunque sea el mismo
-        // `let` en Swift, SwiftUI identifica las vistas por posición estructural, no por
-        // referencia — envolverlo unas veces en HSplitView y otras veces solo produce DOS
-        // identidades distintas, y alternar entre ellas hace que SwiftUI destruya el
-        // ScintillaEditorView entero (no solo lo oculte). Ningún truco de invalidación
-        // async lo arregla del lado de adopt(): el problema es que se destruye, no que
-        // se pinta tarde. HSplitView se mantiene SIEMPRE presente con sus 2 hijos fijos
-        // (no admite hijos condicionales en cantidad) y solo el CONTENIDO del segundo
-        // panel alterna entre la preview real y un placeholder vacío de ancho 0.
+        // El editor y la preview NUNCA pueden vivir dentro de una rama if/else: SwiftUI
+        // identifica las vistas por posición estructural, no por referencia — alternar
+        // ramas destruye el NSViewRepresentable entero (no solo lo oculta) y obliga a
+        // reparentar el ScintillaView/WKWebView compartidos. EditorPreviewSplit mantiene
+        // ambos hijos siempre presentes y solo cambia sus anchos según el modo.
         // Un documento no-Markdown se comporta siempre como .editor, aunque `preview.mode`
         // (persistido, compartido entre pestañas) esté en .split/.preview de una pestaña MD.
-        let isMarkdown = tabs.activeDocumentIsMarkdown
-        let effectiveMode: MarkdownPreviewViewModel.PreviewMode = isMarkdown ? preview.mode : .editor
-        let editorHidden = effectiveMode == .preview
+        let effectiveMode: MarkdownPreviewViewModel.PreviewMode =
+            tabs.activeDocumentIsMarkdown ? preview.mode : .editor
 
-        HSplitView {
-            ScintillaEditorView(
-                editor: tabs.editor,
-                statusBar: tabs.statusBar,
-                document: tabs.activeDocument,
-                spellCheck: spellCheck,
-                onContentChanged: { scheduleRefresh(); scheduleSpellCheck() },
-                onScrolled: { preview.scheduleScrollSync(editor: tabs.editor); scheduleSpellCheck() },
-                onSavePointLeft: { tabs.setActiveDirty(true) },
-                onSavePointReached: { tabs.setActiveDirty(false) },
-                onModifyAttemptReadOnly: { pulseLock() },
-                onSpellCheckAction: { recheckSpellingNow() },
-                onURIDropped: { handleDroppedURLs([$0]) }
-            )
-            .overlay(alignment: .top) {
-                if find.isVisible {
-                    FindBarView(editor: tabs.editor, find: find, isLocked: tabs.activeDocument?.isLocked == true)
+        EditorPreviewSplit(mode: effectiveMode) {
+            HStack(spacing: 0) {
+                ScintillaEditorView(
+                    editor: tabs.editor,
+                    statusBar: tabs.statusBar,
+                    document: tabs.activeDocument,
+                    spellCheck: spellCheck,
+                    onContentChanged: {
+                        tabs.documentMap.refresh()
+                        scheduleRefresh()
+                        scheduleSpellCheck()
+                        outline.scheduleRefresh(editor: tabs.editor, profile: tabs.activeDocument?.languageProfile)
+                    },
+                    onScrolled: {
+                        tabs.documentMap.refresh()
+                        preview.scheduleScrollSync(editor: tabs.editor)
+                        scheduleSpellCheck()
+                    },
+                    onSavePointLeft: { tabs.setActiveDirty(true) },
+                    onSavePointReached: { tabs.setActiveDirty(false) },
+                    onModifyAttemptReadOnly: { pulseLock() },
+                    onSpellCheckAction: { recheckSpellingNow() },
+                    onURIDropped: { handleDroppedURLs([$0]) },
+                    onSelectionChanged: {
+                        BraceMatcher.updateBraces(editor: tabs.editor)
+                        scheduleSmartHighlight()
+                    },
+                    onCharAdded: { character in
+                        guard let document = tabs.activeDocument, !document.isLocked else { return }
+                        if document.languageProfile.lexerName == "markdown" {
+                            MarkdownEditing.charAdded(character, editor: tabs.editor)
+                        }
+                        if preferences.autoCloseBrackets {
+                            AutoClose.charAdded(character, editor: tabs.editor,
+                                                isCode: AutoComplete.isEnabled(for: document.languageProfile))
+                        }
+                        guard preferences.autoComplete,
+                              AutoComplete.isEnabled(for: document.languageProfile) else { return }
+                        AutoComplete.charAdded(character, editor: tabs.editor, document: document)
+                    }
+                )
+                .overlay(alignment: .top) {
+                    if find.isVisible {
+                        FindBarView(editor: tabs.editor, find: find, isLocked: tabs.activeDocument?.isLocked == true)
+                    }
+                }
+                if preferences.showDocumentMap && tabs.activeIndex != nil {
+                    Divider()
+                    DocumentMapRepresentable(map: tabs.documentMap)
+                        .frame(width: DocumentMapView.width)
                 }
             }
-            // El editor NUNCA sale del árbol (ver comentario arriba): en modo solo-vista-previa
-            // queda con ancho 0, invisible y sin hit-testing, no removido.
-            .frame(width: editorHidden ? 0 : nil)
-            .frame(minWidth: editorHidden ? 0 : 240)
-            .opacity(editorHidden ? 0 : 1)
-            .allowsHitTesting(!editorHidden)
-
-            if effectiveMode != .editor, isMarkdown {
-                MarkdownPreviewView(preview: preview).frame(minWidth: 240)
-            } else {
-                Color.clear.frame(width: 0)
-            }
+        } preview: {
+            MarkdownPreviewView(preview: preview)
         }
     }
 
@@ -351,6 +377,24 @@ struct ContentView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: item)
     }
 
+    /// Debounce corto (150ms) del smart highlight: arrastrar una selección dispara
+    /// SC_UPDATE_SELECTION en cada movimiento. Con la barra de Find visible no se pinta, para
+    /// no mezclar su "resaltar todo" con este resaltado.
+    private func scheduleSmartHighlight() {
+        pendingSmartHighlight?.cancel()
+        let item = DispatchWorkItem { [tabs, find] in
+            guard let document = tabs.activeDocument else { return }
+            BraceMatcher.updateTags(editor: tabs.editor, lexerName: document.languageProfile.lexerName)
+            if find.isVisible {
+                SmartHighlighter.clear(editor: tabs.editor)
+            } else {
+                SmartHighlighter.update(editor: tabs.editor)
+            }
+        }
+        pendingSmartHighlight = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
+    }
+
     /// Revisión inmediata (sin debounce) tras una acción del menú de corrector (Task 11):
     /// reemplazo de palabra, aprender o ignorar. El usuario espera ver el squiggle
     /// actualizado al instante, no 500ms después.
@@ -372,6 +416,49 @@ struct ContentView: View {
         _ = ScintillaView.directCall(tabs.editor, message: SCI_GOTOLINE, wParam: targetLine, lParam: 0)
         _ = ScintillaView.directCall(tabs.editor, message: SCI_ENSUREVISIBLEENFORCEPOLICY, wParam: targetLine, lParam: 0)
         tabs.editor.window?.makeFirstResponder(tabs.editor)
+    }
+
+    /// Click en un ítem del esquema (línea 0-based): título de Markdown o función de código.
+    /// En Markdown, a diferencia de jumpToSourceLine, no cambia el modo de vista: en
+    /// solo-vista-previa desplaza la preview a esa sección; en dividida mueve el editor y
+    /// también la preview (el sync de scroll es proporcional y no alinea secciones con precisión).
+    private func jumpToOutlineLine(_ line: Int) {
+        guard tabs.activeDocument != nil else { return }
+        let isMarkdown = tabs.activeDocumentIsMarkdown
+        let targetLine = uptr_t(max(0, line))
+        _ = ScintillaView.directCall(tabs.editor, message: SCI_GOTOLINE, wParam: targetLine, lParam: 0)
+        _ = ScintillaView.directCall(tabs.editor, message: SCI_ENSUREVISIBLEENFORCEPOLICY, wParam: targetLine, lParam: 0)
+        if isMarkdown, preview.mode != .editor {
+            preview.cancelPendingScrollSync()
+            preview.scrollToSourceLine(line + 1)
+        }
+        if !isMarkdown || preview.mode != .preview {
+            tabs.editor.window?.makeFirstResponder(tabs.editor)
+        }
+    }
+
+    /// Para Buscar en archivos: si el documento activo tiene cambios sin guardar, se busca en
+    /// su texto actual (el editor es uno solo: de los inactivos solo se tiene la versión de disco).
+    private func unsavedActiveText() -> [URL: String] {
+        tabs.syncDirtyFlagOfActiveDocument()
+        guard let document = tabs.activeDocument, document.isDirty, let url = document.url else { return [:] }
+        return [url: currentText(tabs.editor)]
+    }
+
+    /// Click en un resultado de Buscar en archivos: abre (o activa) el archivo y selecciona la
+    /// coincidencia. Diferido un ciclo porque open(url:) cambia de documento y SwiftUI
+    /// reconstruye la vista del editor en el mismo pase.
+    private func openFindMatch(url: URL, line: Int, byteStart: Int, byteLength: Int) {
+        guard tabs.open(url: url) else { return }
+        DispatchQueue.main.async {
+            let lineStart = Int(ScintillaView.directCall(tabs.editor, message: SCI_POSITIONFROMLINE, wParam: uptr_t(line), lParam: 0))
+            guard lineStart >= 0 else { return }
+            let start = lineStart + byteStart
+            _ = ScintillaView.directCall(tabs.editor, message: SCI_ENSUREVISIBLEENFORCEPOLICY, wParam: uptr_t(line), lParam: 0)
+            _ = ScintillaView.directCall(tabs.editor, message: SCI_SETSEL, wParam: uptr_t(start), lParam: sptr_t(start + byteLength))
+            _ = ScintillaView.directCall(tabs.editor, message: SCI_SCROLLCARET, wParam: 0, lParam: 0)
+            tabs.editor.window?.makeFirstResponder(tabs.editor)
+        }
     }
 
     /// Pulso breve del ícono de candado ante SCN_MODIFYATTEMPTRO. Reinicia el valor de
@@ -400,6 +487,12 @@ struct ContentView: View {
     /// archivo -> pestaña nueva. Compartido para que ambos caminos de entrada se
     /// comporten igual, incluidos varios archivos sueltos a la vez.
     private func handleDroppedURLs(_ urls: [URL]) {
+        // Imágenes soltadas sobre un Markdown: se enlazan en vez de abrirse como texto.
+        if let document = tabs.activeDocument, document.languageProfile.lexerName == "markdown",
+           !document.isLocked, !urls.isEmpty, urls.allSatisfy(MarkdownImages.isImage) {
+            MarkdownImages.dropImages(urls, editor: tabs.editor, document: document)
+            return
+        }
         var isDirectory: ObjCBool = false
         for url in urls {
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }

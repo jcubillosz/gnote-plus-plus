@@ -86,13 +86,25 @@ let package = Package(
             ]
         ),
         .target(
+            name: "RegexShim",
+            path: "Sources/RegexShim",
+            exclude: ["vendor"],
+            sources: ["RegexShim.cpp"],
+            publicHeadersPath: "include",
+            cxxSettings: [
+                .headerSearchPath("vendor"),
+                // Boost.Regex v5 header-only, sin el resto de Boost.
+                .define("BOOST_REGEX_STANDALONE")
+            ]
+        ),
+        .target(
             name: "CmarkShim",
             dependencies: ["Ccmarkgfm"],
             path: "Sources/CmarkShim"
         ),
         .executableTarget(
             name: "NppMacPOC",
-            dependencies: ["LexillaShim", "CUchardet", "NppDataShim", "CmarkShim"],
+            dependencies: ["LexillaShim", "CUchardet", "NppDataShim", "CmarkShim", "RegexShim"],
             path: "Sources/NppMacPOC",
             resources: [
                 .copy("Resources/langs.model.xml"),
@@ -103,6 +115,8 @@ let package = Package(
                 .copy("Resources/stylers.mac-extra.light.xml"),
                 .copy("Resources/stylers.mac-extra.dark.xml"),
                 .copy("Resources/markdown-preview.css"),
+                .copy("Resources/functionList"),
+                .copy("Resources/mermaid"),
                 .process("Resources/es.lproj"),
                 .process("Resources/en.lproj")
             ],

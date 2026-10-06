@@ -57,8 +57,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var willTerminateObserver: NSObjectProtocol?
 
+    private var didBecomeActiveObserver: NSObjectProtocol?
+
     /// Registra el guardado de sesión al cerrar la app. Se llama una sola vez desde el
     /// onAppear de la ventana principal, cuando ya existen `tabs` y `fileTree`.
+    /// Al volver a la app se revisan todos los documentos abiertos contra disco: red de
+    /// seguridad por si FSEvents no entregó algún evento (ver ExternalFileChanges.swift).
+    func observeActivationForExternalChanges() {
+        guard didBecomeActiveObserver == nil else { return }
+        didBecomeActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.tabs?.checkExternalChanges()
+        }
+    }
+
     func observeTerminationForSessionSave() {
         guard willTerminateObserver == nil else { return }
         willTerminateObserver = NotificationCenter.default.addObserver(
@@ -87,12 +100,16 @@ struct NppMacPOCApp: App {
     @State private var didRestoreSession = false
 
     init() {
-        let editor = ScintillaView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
+        let editor = ContextMenuScintillaView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
         self.editor = editor
         // Margen 1 = números de línea (margen 0 queda para markers/breakpoints a futuro).
         _ = ScintillaView.directCall(editor, message: SCI_SETMARGINTYPEN, wParam: 1, lParam: sptr_t(SC_MARGIN_NUMBER))
         // Padding real de Notepad++: el texto pegado al borde izquierdo sin esto se ve mal.
         _ = ScintillaView.directCall(editor, message: SCI_SETMARGINLEFT, wParam: 0, lParam: 4)
+        configureBookmarkAndFoldMargins(editor)
+        configureChangeHistoryMargin(editor)
+        configureMultipleSelection(editor)
+        AutoComplete.configure(editor)
 
         // Indicador dedicado para resaltar todas las coincidencias de Find (no se reconfigura
         // por tema/lenguaje — es independiente de los estilos de sintaxis). Color en formato
@@ -109,6 +126,20 @@ struct NppMacPOCApp: App {
         _ = ScintillaView.directCall(editor, message: SCI_INDICSETFORE, wParam: uptr_t(INDICATOR_FIND_CURRENT), lParam: 0x0000FF)
         _ = ScintillaView.directCall(editor, message: SCI_INDICSETALPHA, wParam: uptr_t(INDICATOR_FIND_CURRENT), lParam: 120)
         _ = ScintillaView.directCall(editor, message: SCI_INDICSETUNDER, wParam: uptr_t(INDICATOR_FIND_CURRENT), lParam: 1)
+
+        // Smart highlight (SmartHighlight.swift): caja redondeada verde translúcida bajo el
+        // texto, distinta del naranja de "resaltar todo" de Find.
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETSTYLE, wParam: uptr_t(INDICATOR_SMART_HIGHLIGHT), lParam: sptr_t(INDIC_ROUNDBOX))
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETFORE, wParam: uptr_t(INDICATOR_SMART_HIGHLIGHT), lParam: 0x00C000)
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETALPHA, wParam: uptr_t(INDICATOR_SMART_HIGHLIGHT), lParam: 80)
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETUNDER, wParam: uptr_t(INDICATOR_SMART_HIGHLIGHT), lParam: 1)
+
+        // Tags XML/HTML pareados (BraceMatcher): misma caja translúcida que el smart
+        // highlight pero en azul, para que no se confundan.
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETSTYLE, wParam: uptr_t(INDICATOR_TAG_MATCH), lParam: sptr_t(INDIC_ROUNDBOX))
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETFORE, wParam: uptr_t(INDICATOR_TAG_MATCH), lParam: 0xD07A2E)
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETALPHA, wParam: uptr_t(INDICATOR_TAG_MATCH), lParam: 90)
+        _ = ScintillaView.directCall(editor, message: SCI_INDICSETUNDER, wParam: uptr_t(INDICATOR_TAG_MATCH), lParam: 1)
 
         // Indicador de corrector ortográfico (Task 10): squiggle rojo bajo el texto, mismo
         // estilo visual que el corrector nativo de macOS en NSTextView. SCI_INDICSETUNDER lo
@@ -139,6 +170,7 @@ struct NppMacPOCApp: App {
                     appDelegate.tabs = tabs
                     appDelegate.fileTree = fileTree
                     appDelegate.observeTerminationForSessionSave()
+                    appDelegate.observeActivationForExternalChanges()
                     // Restauración de sesión (Task 13): solo la primera vez que aparece la
                     // ventana principal — un onAppear repetido (ej. reabrir tras minimizar)
                     // no debe reabrir todo de nuevo.
@@ -168,6 +200,13 @@ struct NppMacPOCApp: App {
 
 struct AppCommands: Commands {
     @Environment(\.openWindow) private var openWindow
+
+    @AppStorage(SmartHighlighter.enabledDefaultsKey) private var smartHighlightEnabled = true
+
+    /// Hay documento activo y no está bloqueado — requisito de las operaciones que editan texto.
+    private var canEditActive: Bool {
+        tabs.activeIndex != nil && tabs.activeDocument?.isLocked != true
+    }
 
     @ObservedObject var tabs: TabsViewModel
     @ObservedObject var fileTree: FileTreeViewModel
@@ -251,6 +290,9 @@ struct AppCommands: Commands {
             }
             .disabled(tabs.activeDocument?.url == nil)
             Divider()
+            // Tamaño de papel (carta, legal, A4…): el PDF de Markdown se pagina con él.
+            Button(L("Ajustar página…")) { NSPageLayout().runModal(with: NSPrintInfo.shared) }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
             Button(L("Imprimir…")) { actions.printDocument() }
                 .keyboardShortcut("p", modifiers: .command)
                 .disabled(tabs.activeIndex == nil)
@@ -294,9 +336,82 @@ struct AppCommands: Commands {
             .keyboardShortcut("g", modifiers: [.command, .shift])
             .disabled(tabs.activeIndex == nil)
 
+            Button(L("Buscar en archivos…")) {
+                tabs.outline.sidebarTab = .search
+                tabs.outline.showRequestToken += 1
+                tabs.findInFiles.focusRequestToken += 1
+            }
+            .keyboardShortcut("f", modifiers: [.command, .shift])
+
             Button(L("Ir a la línea…")) { goToLine(editor: tabs.editor) }
                 .keyboardShortcut("l", modifiers: .command)
                 .disabled(tabs.activeIndex == nil)
+
+            Menu(L("Marcadores")) {
+                Button(L("Alternar marcador")) { toggleBookmark(editor: tabs.editor) }
+                    .keyboardShortcut(functionKey(2), modifiers: .command)
+                Button(L("Siguiente marcador")) { goToBookmark(editor: tabs.editor, forward: true) }
+                    .keyboardShortcut(functionKey(2), modifiers: [])
+                Button(L("Marcador anterior")) { goToBookmark(editor: tabs.editor, forward: false) }
+                    .keyboardShortcut(functionKey(2), modifiers: .shift)
+                Divider()
+                Button(L("Borrar todos los marcadores")) { clearBookmarks(editor: tabs.editor) }
+            }
+            .disabled(tabs.activeIndex == nil)
+
+            Divider()
+            Menu(L("Operaciones de línea")) {
+                Button(L("Duplicar línea")) { duplicateSelectionOrLine(editor: tabs.editor) }
+                    .keyboardShortcut("d", modifiers: [.command, .shift])
+                Button(L("Eliminar línea")) { deleteCurrentLine(editor: tabs.editor) }
+                    .keyboardShortcut("k", modifiers: [.command, .shift])
+                Button(L("Mover línea arriba")) { moveSelectedLines(editor: tabs.editor, up: true) }
+                    .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+                Button(L("Mover línea abajo")) { moveSelectedLines(editor: tabs.editor, up: false) }
+                    .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+                Button(L("Unir líneas")) { joinLines(editor: tabs.editor) }
+                    .keyboardShortcut("j", modifiers: [.command, .control])
+                Divider()
+                Button(L("Ordenar líneas (A→Z)")) { transformLines(editor: tabs.editor, .sortAscending) }
+                Button(L("Ordenar líneas (Z→A)")) { transformLines(editor: tabs.editor, .sortDescending) }
+                Button(L("Quitar duplicadas consecutivas")) { transformLines(editor: tabs.editor, .removeConsecutiveDuplicates) }
+                Button(L("Quitar todas las duplicadas")) { transformLines(editor: tabs.editor, .removeAllDuplicates) }
+                Button(L("Quitar líneas vacías")) { transformLines(editor: tabs.editor, .removeEmptyLines) }
+            }
+            .disabled(!canEditActive)
+            Menu(L("Selección múltiple")) {
+                Button(L("Agregar siguiente coincidencia")) { addNextOccurrence(editor: tabs.editor, all: false) }
+                    .keyboardShortcut("d", modifiers: .command)
+                Button(L("Seleccionar todas las coincidencias")) { addNextOccurrence(editor: tabs.editor, all: true) }
+                    .keyboardShortcut("g", modifiers: [.command, .control])
+                Button(L("Agregar cursor arriba")) { addCursorVertically(editor: tabs.editor, up: true) }
+                    .keyboardShortcut(.upArrow, modifiers: [.control, .shift])
+                Button(L("Agregar cursor abajo")) { addCursorVertically(editor: tabs.editor, up: false) }
+                    .keyboardShortcut(.downArrow, modifiers: [.control, .shift])
+            }
+            .disabled(!canEditActive)
+            Menu(L("Convertir mayúsculas/minúsculas")) {
+                Button(L("MAYÚSCULAS")) { convertCase(editor: tabs.editor, upper: true) }
+                    .keyboardShortcut("u", modifiers: [.command, .shift])
+                Button(L("minúsculas")) { convertCase(editor: tabs.editor, upper: false) }
+                    .keyboardShortcut("u", modifiers: [.command, .control])
+                Button(L("Tipo Título")) { convertToTitleCase(editor: tabs.editor) }
+            }
+            .disabled(!canEditActive)
+            Button(L("Comentar/descomentar")) {
+                if let syntax = tabs.activeDocument?.languageProfile.comment {
+                    toggleComment(editor: tabs.editor, syntax: syntax)
+                }
+            }
+            // ⌘K como el Ctrl+K de Notepad++: ⌘/ caía en la misma tecla física que ⌘− (zoom)
+            // con teclado español.
+            .keyboardShortcut("k", modifiers: .command)
+            .disabled(!canEditActive || tabs.activeDocument?.languageProfile.comment.isAvailable != true)
+            Button(L("Formatear tabla Markdown")) {
+                if !MarkdownEditing.formatTable(editor: tabs.editor) { NSSound.beep() }
+            }
+            .keyboardShortcut("t", modifiers: [.command, .option])
+            .disabled(!canEditActive || tabs.activeDocument?.languageProfile.lexerName != "markdown")
 
             Divider()
             Toggle(L("Bloquear edición"), isOn: Binding(
@@ -345,6 +460,13 @@ struct AppCommands: Commands {
                 Button(L("Recargar como \(encoding)")) { tabs.reload(activeDocumentWithEncoding: encoding) }
                     .disabled(tabs.activeIndex == nil || tabs.activeDocument?.isLocked == true)
             }
+            Divider()
+            Button(L("Convertir fin de línea a Windows (CRLF)")) { tabs.convertActiveEOL(to: .crlf) }
+                .disabled(tabs.activeIndex == nil || tabs.activeDocument?.isLocked == true)
+            Button(L("Convertir fin de línea a Unix (LF)")) { tabs.convertActiveEOL(to: .lf) }
+                .disabled(tabs.activeIndex == nil || tabs.activeDocument?.isLocked == true)
+            Button(L("Convertir fin de línea a Mac clásico (CR)")) { tabs.convertActiveEOL(to: .cr) }
+                .disabled(tabs.activeIndex == nil || tabs.activeDocument?.isLocked == true)
         }
 
         CommandMenu(L("Vista")) {
@@ -356,9 +478,51 @@ struct AppCommands: Commands {
                 get: { preferences.showLineNumbers },
                 set: { preferences.showLineNumbers = $0; preferences.applyEditingOptions(to: tabs.editor) }
             ))
+            Toggle(L("Resaltar coincidencias de la selección"), isOn: Binding(
+                get: { smartHighlightEnabled },
+                set: { smartHighlightEnabled = $0; SmartHighlighter.update(editor: tabs.editor) }
+            ))
+            Button(L("Acercar")) { preferences.zoom = min(preferences.zoom + 1, 20); preferences.applyEditingOptions(to: tabs.editor) }
+                .keyboardShortcut("+", modifiers: .command)
+            Button(L("Alejar")) { preferences.zoom = max(preferences.zoom - 1, -10); preferences.applyEditingOptions(to: tabs.editor) }
+                .keyboardShortcut("-", modifiers: .command)
+            Button(L("Tamaño real")) { preferences.zoom = 0; preferences.applyEditingOptions(to: tabs.editor) }
+                .keyboardShortcut("0", modifiers: .command)
+            Divider()
+            Toggle(L("Autocompletar"), isOn: Binding(
+                get: { preferences.autoComplete },
+                set: { preferences.autoComplete = $0 }
+            ))
+            Toggle(L("Mostrar minimapa"), isOn: Binding(
+                get: { preferences.showDocumentMap },
+                set: { preferences.showDocumentMap = $0 }
+            ))
+            .keyboardShortcut("m", modifiers: [.command, .control])
+            Toggle(L("Margen de plegado"), isOn: Binding(
+                get: { preferences.showFoldMargin },
+                set: { preferences.showFoldMargin = $0; preferences.applyEditingOptions(to: tabs.editor) }
+            ))
+            Button(L("Plegar todo")) { foldAll(editor: tabs.editor, expand: false) }
+                .keyboardShortcut("0", modifiers: [.command, .option])
+                .disabled(tabs.activeIndex == nil)
+            Button(L("Desplegar todo")) { foldAll(editor: tabs.editor, expand: true) }
+                .keyboardShortcut("0", modifiers: [.command, .option, .shift])
+                .disabled(tabs.activeIndex == nil)
             Toggle(L("Mostrar espacios en blanco"), isOn: Binding(
                 get: { preferences.showWhitespace },
                 set: { preferences.showWhitespace = $0; preferences.applyEditingOptions(to: tabs.editor) }
+            ))
+            Toggle(L("Historial de cambios en el margen"), isOn: Binding(
+                get: { preferences.showChangeHistory },
+                set: { preferences.showChangeHistory = $0; preferences.applyEditingOptions(to: tabs.editor) }
+            ))
+            Toggle(L("Autocerrar paréntesis y comillas"), isOn: Binding(
+                get: { preferences.autoCloseBrackets },
+                set: { preferences.autoCloseBrackets = $0 }
+            ))
+            Toggle(L("Recortar espacios finales al guardar"), isOn: Binding(
+                get: { preferences.trimTrailingWhitespaceOnSave },
+                set: { preferences.trimTrailingWhitespaceOnSave = $0 }
             ))
             Divider()
             Toggle(L("Solo editor"), isOn: Binding(
@@ -386,7 +550,25 @@ struct AppCommands: Commands {
             }
             .keyboardShortcut("p", modifiers: [.command, .option])
             .disabled(!tabs.activeDocumentIsMarkdown)
+            Divider()
+            Button(L("Mostrar esquema")) {
+                tabs.outline.sidebarTab = .outline
+                tabs.outline.showRequestToken += 1
+            }
+            .keyboardShortcut("o", modifiers: [.command, .control])
+            Divider()
+            Button(L("Pestaña siguiente")) { tabs.activateAdjacent(1) }
+                .keyboardShortcut("]", modifiers: [.command, .shift])
+                .disabled(tabs.documents.count < 2)
+            Button(L("Pestaña anterior")) { tabs.activateAdjacent(-1) }
+                .keyboardShortcut("[", modifiers: [.command, .shift])
+                .disabled(tabs.documents.count < 2)
         }
     }
 
+}
+
+/// Tecla de función como KeyEquivalent de SwiftUI (F1 = NSF1FunctionKey = 0xF704).
+func functionKey(_ number: Int) -> KeyEquivalent {
+    KeyEquivalent(Character(UnicodeScalar(0xF704 + number - 1)!))
 }

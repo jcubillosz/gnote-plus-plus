@@ -162,3 +162,22 @@ char* npp_list_language_names(const char* langsXmlPath) {
 void npp_free_string(char* s) {
     std::free(s);
 }
+
+char* npp_lookup_comments(const char* langsXmlPath, const char* langNameRaw) {
+    if (!langsXmlPath || !langNameRaw) return nullptr;
+    std::string langName = langNameRaw;
+
+    pugi::xml_document doc;
+    if (!doc.load_file(langsXmlPath)) return nullptr;
+
+    for (pugi::xml_node lang : doc.child("NotepadPlus").child("Languages").children("Language")) {
+        if (langName != lang.attribute("name").as_string()) continue;
+        std::string result = lang.attribute("commentLine").as_string();
+        result += '\x1F';
+        result += lang.attribute("commentStart").as_string();
+        result += '\x1F';
+        result += lang.attribute("commentEnd").as_string();
+        return dupString(result);
+    }
+    return nullptr;
+}

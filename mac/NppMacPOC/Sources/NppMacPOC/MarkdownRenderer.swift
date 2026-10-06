@@ -60,7 +60,10 @@ func renderMarkdownDocument(
     sourcePositions: Bool = false,
     imageSource: MarkdownImageSource = .file
 ) -> String {
-    let fragment = renderMarkdownFragment(markdown, sourcePositions: sourcePositions)
+    var fragment = MarkdownHTMLExtensions.applyAlerts(renderMarkdownFragment(markdown, sourcePositions: sourcePositions))
+    if sourcePositions {
+        fragment = MarkdownHTMLExtensions.clickableTasks(fragment)
+    }
     // El coloreado usa un ScintillaView oculto, que es AppKit: solo main thread. Todos
     // los llamadores (preview, imprimir, exportar) ya corren ahí; assumeIsolated lo
     // verifica en runtime en vez de suponerlo.

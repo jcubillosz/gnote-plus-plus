@@ -30,24 +30,9 @@ func insertMarkdownTable(editor: ScintillaView) {
     replaceSelection(editor, with: table)
 }
 
-/// `![](ruta)` — abre un NSOpenPanel filtrado a imágenes. Si el documento ya está
-/// guardado, escribe la ruta relativa al .md (lo que MarkdownImageSource resuelve);
-/// si no, la absoluta.
+/// `![](ruta)` — elige imágenes y las enlaza (ver MarkdownImages.chooseAndInsert).
 func insertMarkdownImage(editor: ScintillaView, document: Document?) {
-    let panel = NSOpenPanel()
-    panel.canChooseDirectories = false
-    panel.canChooseFiles = true
-    panel.allowsMultipleSelection = false
-    panel.allowedContentTypes = [.image]
-    guard panel.runModal() == .OK, let imageURL = panel.url else { return }
-
-    let path: String
-    if let docURL = document?.url {
-        path = imageURL.path(relativeTo: docURL.deletingLastPathComponent()) ?? imageURL.path
-    } else {
-        path = imageURL.path
-    }
-    replaceSelection(editor, with: "![](\(path))")
+    MarkdownImages.chooseAndInsert(editor: editor, document: document)
 }
 
 /// Cerca ``` arriba y abajo; si hay selección, la envuelve.
@@ -136,18 +121,29 @@ private func selectedText(_ editor: ScintillaView, start: Int, end: Int) -> Stri
     return String(decoding: bytes[start..<end], as: UTF8.self)
 }
 
-private extension URL {
-    /// Ruta relativa de este archivo respecto de `base`, o nil si no comparten prefijo.
-    func path(relativeTo base: URL) -> String? {
-        let baseComponents = base.standardizedFileURL.pathComponents
-        let selfComponents = self.standardizedFileURL.pathComponents
-        var common = 0
-        while common < baseComponents.count, common < selfComponents.count, baseComponents[common] == selfComponents[common] {
-            common += 1
-        }
-        guard common > 0 else { return nil }
-        let ups = Array(repeating: "..", count: baseComponents.count - common)
-        let downs = selfComponents[common...]
-        return (ups + downs).joined(separator: "/")
-    }
+
+/// Alerta de GitHub ("> [!NOTE]"). Convierte las líneas seleccionadas (o la del caret) en
+/// el cuerpo de la alerta; si están vacías, deja el caret en la primera línea del cuerpo.
+func insertMarkdownAlert(_ kind: String, editor: ScintillaView) {
+    let selStart = Int(ScintillaView.directCall(editor, message: SCI_GETSELECTIONSTART, wParam: 0, lParam: 0))
+    let selEnd = Int(ScintillaView.directCall(editor, message: SCI_GETSELECTIONEND, wParam: 0, lParam: 0))
+    let firstLine = Int(ScintillaView.directCall(editor, message: SCI_LINEFROMPOSITION, wParam: uptr_t(selStart), lParam: 0))
+    let lastLine = Int(ScintillaView.directCall(editor, message: SCI_LINEFROMPOSITION, wParam: uptr_t(selEnd), lParam: 0))
+    let start = Int(ScintillaView.directCall(editor, message: SCI_POSITIONFROMLINE, wParam: uptr_t(firstLine), lParam: 0))
+    let end = Int(ScintillaView.directCall(editor, message: SCI_GETLINEENDPOSITION, wParam: uptr_t(lastLine), lParam: 0))
+    let lines = selectedText(editor, start: start, end: end).components(separatedBy: "\n")
+        .map { $0.hasSuffix("\r") ? String($0.dropLast()) : $0 }
+    let body = lines.allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty }
+        ? ["> "]
+        : lines.map { "> " + $0 }
+    let eol = [0: "\r\n", 1: "\r", 2: "\n"][Int(ScintillaView.directCall(editor, message: SCI_GETEOLMODE, wParam: 0, lParam: 0))] ?? "\n"
+    _ = ScintillaView.directCall(editor, message: SCI_SETSEL, wParam: uptr_t(start), lParam: sptr_t(end))
+    replaceSelection(editor, with: (["> [!\(kind)]"] + body).joined(separator: eol))
+}
+
+/// Marca/desmarca la casilla de la línea del caret.
+func toggleMarkdownTaskAtCaret(editor: ScintillaView) {
+    let pos = ScintillaView.directCall(editor, message: SCI_GETCURRENTPOS, wParam: 0, lParam: 0)
+    let line = Int(ScintillaView.directCall(editor, message: SCI_LINEFROMPOSITION, wParam: uptr_t(pos), lParam: 0))
+    if !MarkdownEditing.toggleTask(editor: editor, line: line) { NSSound.beep() }
 }

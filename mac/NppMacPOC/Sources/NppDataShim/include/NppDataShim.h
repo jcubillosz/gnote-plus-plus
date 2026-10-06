@@ -41,6 +41,10 @@ char* npp_lookup_global_style(const char* themeXmlPath, const char* widgetName);
 // NULL si el XML no carga.
 char* npp_list_language_names(const char* langsXmlPath);
 
+// Sintaxis de comentarios de <Language name="langName">: "<commentLine>\x1F<commentStart>\x1F<commentEnd>"
+// (cualquiera puede ser cadena vacía). NULL si no hay match.
+char* npp_lookup_comments(const char* langsXmlPath, const char* langName);
+
 void npp_free_string(char* s);
 
 #ifdef __cplusplus

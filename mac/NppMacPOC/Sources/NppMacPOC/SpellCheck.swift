@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import NaturalLanguage
 import Scintilla
 
 /// Estado publicado del corrector ortográfico (Task 10). Mismo patrón que FindViewModel:
@@ -17,8 +18,8 @@ final class SpellCheckViewModel: ObservableObject {
             UserDefaults.standard.set(enabled, forKey: DefaultsKey.enabled)
         }
     }
-    /// "es", "en" o "auto". Con "auto" se usa NSSpellChecker.automaticallyIdentifiesLanguages
-    /// y language: nil en checkSpelling(of:...).
+    /// "es", "en" o "auto". Con "auto" se detecta el idioma dominante de cada documento
+    /// (SpellChecker.resolvedLanguage) y se revisa con ese idioma fijo.
     @Published var language: String {
         didSet {
             guard oldValue != language else { return }
@@ -57,7 +58,7 @@ enum SpellChecker {
         guard totalLength > 0 else { return }
 
         let lineCount = Int(ScintillaView.directCall(editor, message: SCI_GETLINECOUNT, wParam: 0, lParam: 0))
-        let firstVisibleLine = Int(ScintillaView.directCall(editor, message: SCI_GETFIRSTVISIBLELINE, wParam: 0, lParam: 0))
+        let firstVisibleLine = firstVisibleDocumentLine(editor)
         let linesOnScreen = Int(ScintillaView.directCall(editor, message: SCI_LINESONSCREEN, wParam: 0, lParam: 0))
         let margin = 50
         let startLine = max(0, firstVisibleLine - margin)
@@ -68,6 +69,8 @@ enum SpellChecker {
             ? totalLength
             : Int(ScintillaView.directCall(editor, message: SCI_POSITIONFROMLINE, wParam: uptr_t(endLineExclusive), lParam: 0))
 
+        guard rangeStart >= 0, rangeEnd >= rangeStart else { return }
+
         // Limpiar solo el rango que se va a revisar de nuevo, no el documento entero: fuera
         // de este rango puede haber squiggles de una revisión anterior (scroll previo) que
         // siguen siendo válidos y no hace falta recalcular.
@@ -77,10 +80,14 @@ enum SpellChecker {
 
         guard let rangeText = targetText(editor: editor, start: rangeStart, end: rangeEnd), !rangeText.isEmpty else { return }
 
+        // Scintilla lexea perezoso (solo lo visible): sin esto, las líneas de margen fuera de
+        // pantalla —o todo el documento recién abierto— tienen estilo 0 y shouldCheckStyle
+        // decide mal (comentarios de código sin revisar, bloques de código Markdown revisados).
+        _ = ScintillaView.directCall(editor, message: SCI_COLOURISE, wParam: uptr_t(rangeStart), lParam: sptr_t(rangeEnd))
+
         let checker = NSSpellChecker.shared
-        let useAutoLanguage = spellCheck.language == "auto"
-        checker.automaticallyIdentifiesLanguages = useAutoLanguage
-        let language: String? = useAutoLanguage ? nil : spellCheck.language
+        checker.automaticallyIdentifiesLanguages = false
+        let language = resolvedLanguage(editor: editor, document: document, spellCheck: spellCheck)
 
         let nsText = rangeText as NSString
         let profile = document.languageProfile
@@ -119,12 +126,49 @@ enum SpellChecker {
         }
     }
 
+    /// Idioma con el que se revisa `document`. En modo "auto" NO se deja que NSSpellChecker
+    /// adivine en cada pasada (automaticallyIdentifiesLanguages): adivinaba sobre cada
+    /// fragmento revisado y la misma palabra quedaba marcada o no según el rango visible.
+    /// Se detecta una vez el idioma dominante del documento (es/en) y se cachea; solo se
+    /// re-detecta si el largo cambió más de un 20%.
+    static func resolvedLanguage(editor: ScintillaView, document: Document, spellCheck: SpellCheckViewModel) -> String {
+        guard spellCheck.language == "auto" else { return spellCheck.language }
+        let length = Int(ScintillaView.directCall(editor, message: SCI_GETLENGTH, wParam: 0, lParam: 0))
+        if let cached = document.detectedSpellLanguage,
+           abs(length - document.detectedSpellLanguageLength) * 5 <= max(document.detectedSpellLanguageLength, 1) {
+            return cached
+        }
+        let sample = targetText(editor: editor, start: 0, end: min(length, 20_000)) ?? ""
+        let recognizer = NLLanguageRecognizer()
+        recognizer.languageConstraints = [.spanish, .english]
+        recognizer.processString(sample)
+        let detected: String
+        switch recognizer.dominantLanguage {
+        case .spanish?: detected = "es"
+        case .english?: detected = "en"
+        default: detected = fallbackLanguage
+        }
+        // Con muy poco texto la detección no es confiable: no se cachea, se reintenta
+        // en la próxima revisión cuando haya más.
+        if sample.count >= 40 {
+            document.detectedSpellLanguage = detected
+            document.detectedSpellLanguageLength = length
+        }
+        return detected
+    }
+
+    /// Idioma preferido del sistema si es es/en; si no, español.
+    private static var fallbackLanguage: String {
+        let preferred = Locale.preferredLanguages.first?.prefix(2) ?? "es"
+        return preferred == "en" ? "en" : "es"
+    }
+
     /// Lee el texto entre `start` y `end` (posiciones en bytes UTF-8 de Scintilla) usando
     /// SCI_SETTARGETSTART/END + SCI_GETTARGETTEXT — mismo patrón de "pedir el largo primero,
     /// después llenar el buffer" que currentText()/selectionSerialized() en ScintillaMessages.swift.
     /// Se prefiere sobre SCI_GETTEXTRANGE porque ese mensaje requiere construir el struct C
     /// Sci_TextRange, que no está expuesto a Swift sin interop adicional.
-    fileprivate static func targetText(editor: ScintillaView, start: Int, end: Int) -> String? {
+    static func targetText(editor: ScintillaView, start: Int, end: Int) -> String? {
         _ = ScintillaView.directCall(editor, message: SCI_SETTARGETSTART, wParam: uptr_t(start), lParam: 0)
         _ = ScintillaView.directCall(editor, message: SCI_SETTARGETEND, wParam: uptr_t(end), lParam: 0)
         let length = Int(ScintillaView.directCall(editor, message: SCI_GETTARGETTEXT, wParam: 0, lParam: 0))
@@ -216,14 +260,8 @@ enum SpellChecker {
 /// Menú contextual del corrector ortográfico (Task 11): sugerencias, aprender/ignorar y los
 /// ítems estándar de edición, sobre la palabra bajo el clic derecho.
 ///
-/// Mecanismo elegido: un NSEvent.addLocalMonitorForEvents(.rightMouseDown), no un subclass/
-/// swizzle de ScintillaView. El framework Scintilla.framework es de solo lectura (preferir
-/// Swift) y ScintillaCocoa::CreateContextMenu vive en Objective-C++ dentro del framework, sin
-/// gancho expuesto a Swift para insertar ítems. Un monitor local es no invasivo: intercepta el
-/// rightMouseDown ANTES de que llegue a la vista, decide si el punto cae sobre INDICATOR_SPELL
-/// (SCI_INDICATORVALUEAT) y en ese caso muestra un NSMenu propio y devuelve nil (swallow) para
-/// que el menú nativo de Scintilla no se abra encima; en cualquier otro punto devuelve el
-/// evento tal cual, y el menú contextual normal de Scintilla sigue funcionando sin cambios.
+/// Lo invoca ContextMenuScintillaView.menu(for:) (ScintillaEditorView.swift) solo cuando el
+/// clic cae sobre INDICATOR_SPELL; en cualquier otro punto Scintilla muestra su menú nativo.
 enum SpellCheckContextMenu {
     /// Construye el menú para la palabra marcada en [wordStart, wordEnd) (posiciones de
     /// Scintilla, bytes UTF-8). Si por algún motivo no se puede leer la palabra, degrada al
@@ -242,8 +280,7 @@ enum SpellCheckContextMenu {
         if let word = SpellChecker.targetText(editor: editor, start: wordStart, end: wordEnd), !word.isEmpty {
             let checker = NSSpellChecker.shared
             if !document.isLocked {
-                let useAutoLanguage = spellCheck.language == "auto"
-                let language: String? = useAutoLanguage ? nil : spellCheck.language
+                let language = SpellChecker.resolvedLanguage(editor: editor, document: document, spellCheck: spellCheck)
                 let guesses = checker.guesses(
                     forWordRange: NSRange(location: 0, length: (word as NSString).length),
                     in: word,
@@ -266,7 +303,7 @@ enum SpellCheckContextMenu {
                 menu.addItem(.separator())
             }
 
-            addAction(L("Aprender palabra"), to: menu) {
+            addAction(L("Agregar al diccionario"), to: menu) {
                 checker.learnWord(word)
                 onAction()
             }
@@ -277,7 +314,7 @@ enum SpellCheckContextMenu {
             menu.addItem(.separator())
         }
 
-        appendStandardEditItems(to: menu)
+        appendStandardEditItems(to: menu, target: editor.content())
         return menu
     }
 
@@ -293,15 +330,21 @@ enum SpellCheckContextMenu {
                 lParam: sptr_t(bitPattern: UInt(bitPattern: cstr))
             )
         }
+        // El clic derecho seleccionó la palabra; tras reemplazar, caret al final (como NSTextView).
+        let newEnd = start + replacement.utf8.count
+        _ = ScintillaView.directCall(editor, message: SCI_SETSEL, wParam: uptr_t(newEnd), lParam: sptr_t(newEnd))
     }
 
-    /// Cortar/Copiar/Pegar con target nil: delega al responder chain (el editor implementa
-    /// cut:/copy:/paste: como cualquier vista de texto de AppKit), igual que haría el menú
-    /// contextual nativo de Scintilla.
-    private static func appendStandardEditItems(to menu: NSMenu) {
-        menu.addItem(withTitle: L("Cortar"), action: #selector(NSText.cut(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: L("Copiar"), action: #selector(NSText.copy(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: L("Pegar"), action: #selector(NSText.paste(_:)), keyEquivalent: "")
+    /// Cortar/Copiar/Pegar dirigidos explícitamente al SCIContentView (que implementa
+    /// cut:/copy:/paste: y su validación). Con target nil dependían del first responder de la
+    /// ventana, que no siempre es el editor al abrir el menú, y quedaban deshabilitados.
+    private static func appendStandardEditItems(to menu: NSMenu, target: NSView?) {
+        for (title, action) in [(L("Cortar"), #selector(NSText.cut(_:))),
+                                (L("Copiar"), #selector(NSText.copy(_:))),
+                                (L("Pegar"), #selector(NSText.paste(_:)))] {
+            let item = menu.addItem(withTitle: title, action: action, keyEquivalent: "")
+            item.target = target
+        }
     }
 
     private static func addAction(_ title: String, to menu: NSMenu, _ action: @escaping () -> Void) {

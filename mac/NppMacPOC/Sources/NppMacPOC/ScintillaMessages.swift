@@ -139,9 +139,14 @@ let INDIC_SQUIGGLEPIXMAP: Int = 13
 /// Devuelve el texto (y su largo) entre SCI_SETTARGETSTART/SCI_SETTARGETEND, como bytes UTF-8.
 /// A diferencia de SCI_GETTEXTRANGE no requiere construir el struct Sci_TextRange desde Swift.
 let SCI_GETTARGETTEXT: UInt32 = 2687
-/// Task 11 (menú contextual del corrector): convierte un punto (x,y) de la vista en una
-/// posición del documento, para saber sobre qué palabra cayó el clic derecho.
-let SCI_POSITIONFROMPOINT: UInt32 = 2022
+/// Task 11 (menú contextual del corrector): convierte un punto (x,y) en coordenadas de
+/// cliente de Scintilla en una posición del documento, o -1 si no cae sobre un carácter.
+let SCI_POSITIONFROMPOINTCLOSE: UInt32 = 2023
+/// Para reconstruir el ancho total de márgenes (ViewStyle::fixedColumnWidth): margen
+/// izquierdo + suma de SCI_GETMARGINWIDTHN de cada margen.
+let SCI_GETMARGINLEFT: UInt32 = 2156
+let SCI_GETMARGINWIDTHN: UInt32 = 2243
+let SCI_GETMARGINS: UInt32 = 2253
 /// Valor del indicador en una posición dada (wParam=indicador, lParam=posición). Con
 /// INDICATOR_SPELL distinto de 0 significa que esa posición está bajo el squiggle rojo.
 let SCI_INDICATORVALUEAT: UInt32 = 2507
@@ -173,6 +178,19 @@ func setStyle(_ editor: ScintillaView, _ style: Int, fore: sptr_t, back: sptr_t?
 /// ahí mismo, en silencio, y el siguiente guardado escribiría esa versión
 /// truncada sobre el archivo original. APPENDTEXT recibe el largo explícito.
 func loadText(_ editor: ScintillaView, _ text: String) {
+    // Un documento bloqueado ya tiene SCI_SETREADONLY(1) cuando se carga (attachToEditor corre
+    // antes que loadText al abrir/restaurar sesión), y Scintilla ignora CLEARALL/APPENDTEXT en
+    // solo lectura: el archivo bloqueado se abría en blanco (bug real de QA manual). La carga
+    // no es una edición del usuario, así que se suspende el solo-lectura y se restaura después.
+    let wasReadOnly = ScintillaView.directCall(editor, message: SCI_GETREADONLY, wParam: 0, lParam: 0) != 0
+    if wasReadOnly {
+        _ = ScintillaView.directCall(editor, message: SCI_SETREADONLY, wParam: 0, lParam: 0)
+    }
+    defer {
+        if wasReadOnly {
+            _ = ScintillaView.directCall(editor, message: SCI_SETREADONLY, wParam: 1, lParam: 0)
+        }
+    }
     let bytes = Array(text.utf8)
     _ = ScintillaView.directCall(editor, message: SCI_CLEARALL, wParam: 0, lParam: 0)
     bytes.withUnsafeBufferPointer { buffer in
@@ -219,4 +237,133 @@ func setSelectionSerialized(_ editor: ScintillaView, _ s: String) {
     s.withCString { cstr in
         _ = ScintillaView.directCall(editor, message: SCI_SETSELECTIONSERIALIZED, wParam: 0, lParam: sptr_t(bitPattern: UInt(bitPattern: cstr)))
     }
+}
+
+// Operaciones de línea (LineOperations.swift) — equivalentes a IDM_EDIT_* de Notepad++
+// (PowerEditor/src/menuCmdID.h).
+let SCI_BEGINUNDOACTION: UInt32 = 2078
+let SCI_ENDUNDOACTION: UInt32 = 2079
+let SCI_SELECTIONDUPLICATE: UInt32 = 2469
+let SCI_MOVESELECTEDLINESUP: UInt32 = 2620
+let SCI_MOVESELECTEDLINESDOWN: UInt32 = 2621
+let SCI_LINEDELETE: UInt32 = 2338
+let SCI_TARGETFROMSELECTION: UInt32 = 2287
+let SCI_LINESJOIN: UInt32 = 2288
+let SCI_UPPERCASE: UInt32 = 2341
+let SCI_LOWERCASE: UInt32 = 2340
+let SCI_SETTARGETRANGE: UInt32 = 2686
+let SCI_GETLINEENDPOSITION: UInt32 = 2136
+
+// Smart highlight (SmartHighlight.swift).
+let SCI_WORDSTARTPOSITION: UInt32 = 2266
+let SCI_WORDENDPOSITION: UInt32 = 2267
+let SC_UPDATE_SELECTION: Int = 0x2
+let INDIC_ROUNDBOX: Int = 7
+/// 8: libre, debajo de los de Find (9/10) y el corrector (11).
+let INDICATOR_SMART_HIGHLIGHT: Int = 8
+
+// Marcadores y plegado (Bookmarks.swift, NppMacPOCApp.init, applyLanguage).
+let SC_MARGIN_SYMBOL: Int = 0
+let SCI_SETMARGINMASKN: UInt32 = 2244
+let SCI_SETMARGINSENSITIVEN: UInt32 = 2246
+let SCI_MARKERDEFINE: UInt32 = 2040
+let SCI_MARKERSETFORE: UInt32 = 2041
+let SCI_MARKERSETBACK: UInt32 = 2042
+let SCI_MARKERADD: UInt32 = 2043
+let SCI_MARKERDELETE: UInt32 = 2044
+let SCI_MARKERDELETEALL: UInt32 = 2045
+let SCI_MARKERGET: UInt32 = 2046
+let SCI_MARKERNEXT: UInt32 = 2047
+let SCI_MARKERPREVIOUS: UInt32 = 2048
+let SCI_SETAUTOMATICFOLD: UInt32 = 2663
+let SC_AUTOMATICFOLD_SHOW: Int = 0x1
+let SC_AUTOMATICFOLD_CLICK: Int = 0x2
+let SC_AUTOMATICFOLD_CHANGE: Int = 0x4
+let SCI_FOLDALL: UInt32 = 2662
+let SC_FOLDACTION_CONTRACT: Int = 0
+let SC_FOLDACTION_EXPAND: Int = 1
+let SCI_SETFOLDMARGINCOLOUR: UInt32 = 2290
+let SCI_SETFOLDMARGINHICOLOUR: UInt32 = 2291
+let SCI_SETFOLDFLAGS: UInt32 = 2233
+let SC_FOLDFLAG_LINEAFTER_CONTRACTED: Int = 0x10
+let SCN_MARGINCLICK: Int32 = 2010
+/// Máscara de los 7 markers de plegado (25–31).
+let SC_MASK_FOLDERS: Int = 0xFE000000
+let SC_MARKNUM_FOLDEREND: Int = 25
+let SC_MARKNUM_FOLDEROPENMID: Int = 26
+let SC_MARKNUM_FOLDERMIDTAIL: Int = 27
+let SC_MARKNUM_FOLDERTAIL: Int = 28
+let SC_MARKNUM_FOLDERSUB: Int = 29
+let SC_MARKNUM_FOLDER: Int = 30
+let SC_MARKNUM_FOLDEROPEN: Int = 31
+let SC_MARK_VLINE: Int = 9
+let SC_MARK_LCORNER: Int = 10
+let SC_MARK_TCORNER: Int = 11
+let SC_MARK_BOXPLUS: Int = 12
+let SC_MARK_BOXPLUSCONNECTED: Int = 13
+let SC_MARK_BOXMINUS: Int = 14
+let SC_MARK_BOXMINUSCONNECTED: Int = 15
+let SC_MARK_BOOKMARK: Int = 31
+/// Marker de marcadores de usuario: 20. Los 21–24 son del historial de cambios de Scintilla
+/// (SC_MARKNUM_HISTORY_*) y 25–31 del plegado.
+let MARKER_BOOKMARK: Int = 20
+/// Márgenes: 0 = marcadores, 1 = números de línea, 2 = plegado, 3 = historial de cambios.
+let MARGIN_BOOKMARKS: Int = 0
+let MARGIN_FOLD: Int = 2
+let SCN_CHARADDED: Int32 = 2001
+
+// Llaves/tags, zoom y fin de línea (BraceMatcher.swift, EditorPreferences, Codificación).
+let SCI_GETCHARAT: UInt32 = 2007
+let SCI_BRACEHIGHLIGHT: UInt32 = 2351
+let SCI_BRACEBADLIGHT: UInt32 = 2352
+let SCI_BRACEMATCH: UInt32 = 2353
+let STYLE_BRACELIGHT: Int = 34
+let STYLE_BRACEBAD: Int = 35
+/// 12: libre (8 smart highlight, 9/10 Find, 11 corrector).
+let INDICATOR_TAG_MATCH: Int = 12
+let SCI_SETZOOM: UInt32 = 2373
+let SCI_CONVERTEOLS: UInt32 = 2029
+
+// Selección múltiple (MultiSelection.swift).
+let SCI_SETMULTIPLESELECTION: UInt32 = 2563
+let SCI_SETADDITIONALSELECTIONTYPING: UInt32 = 2565
+let SCI_SETMULTIPASTE: UInt32 = 2614
+let SC_MULTIPASTE_EACH: Int = 1
+let SCI_SETRECTANGULARSELECTIONMODIFIER: UInt32 = 2598
+let SCMOD_ALT: Int = 4
+let SCI_TARGETWHOLEDOCUMENT: UInt32 = 2690
+let SCI_MULTIPLESELECTADDNEXT: UInt32 = 2688
+let SCI_MULTIPLESELECTADDEACH: UInt32 = 2689
+let SCI_ADDSELECTION: UInt32 = 2573
+let SCI_GETSELECTIONS: UInt32 = 2570
+let SCI_GETSELECTIONNCARET: UInt32 = 2577
+let SCI_FINDCOLUMN: UInt32 = 2456
+
+// Autocompletado (AutoComplete.swift).
+let SCI_AUTOCSHOW: UInt32 = 2100
+let SCI_AUTOCCANCEL: UInt32 = 2101
+let SCI_AUTOCSETIGNORECASE: UInt32 = 2115
+let SCI_AUTOCSETORDER: UInt32 = 2660
+let SC_ORDER_PERFORMSORT: Int = 1
+let SCI_AUTOCSETMAXHEIGHT: UInt32 = 2210
+
+// Minimapa (DocumentMap.swift).
+let SCI_GETDOCPOINTER: UInt32 = 2357
+let SCI_SETVSCROLLBAR: UInt32 = 2280
+let SCI_SETHSCROLLBAR: UInt32 = 2130
+let SCI_SETCARETSTYLE: UInt32 = 2512
+let CARETSTYLE_INVISIBLE: Int = 0
+let SCI_SETCARETLINEVISIBLE: UInt32 = 2096
+let SCI_TEXTHEIGHT: UInt32 = 2279
+let SCI_DOCLINEFROMVISIBLE: UInt32 = 2221
+let SCI_VISIBLEFROMDOCLINE: UInt32 = 2220
+
+/// Primera línea DEL DOCUMENTO visible en el editor. SCI_GETFIRSTVISIBLELINE devuelve una
+/// línea de pantalla: con ajuste de línea (o bloques plegados) no coincide con las líneas
+/// del documento y puede superar SCI_GETLINECOUNT — usada como línea del documento,
+/// SCI_POSITIONFROMLINE devolvía -1 y uptr_t(-1) crasheaba al abrir la app (sesión restaurada
+/// con scroll cerca del final de un documento con ajuste de línea).
+func firstVisibleDocumentLine(_ editor: ScintillaView) -> Int {
+    let display = ScintillaView.directCall(editor, message: SCI_GETFIRSTVISIBLELINE, wParam: 0, lParam: 0)
+    return Int(ScintillaView.directCall(editor, message: SCI_DOCLINEFROMVISIBLE, wParam: uptr_t(max(0, display)), lParam: 0))
 }

@@ -186,22 +186,24 @@ final class PaginatedTextView: NSTextView {
 
 // MARK: - PDF de Markdown (WKWebView.createPDF + PDFKit)
 
-/// Hoja carta US en puntos (1pt = 1/72"; WKWebView ya opera en esa misma unidad, un CSS
-/// px de contenido mide 1pt acá, sin conversión de dpi de por medio) y margen de 2cm.
-private let markdownPDFPageSize = CGSize(width: 612, height: 792)
+/// Tamaño de hoja del PDF de Markdown: el papel configurado para la impresora (carta,
+/// legal, A4…), en puntos (1pt = 1/72"; un CSS px de WKWebView mide 1pt). Margen de 2cm.
+private var markdownPDFPageSize: CGSize {
+    let size = NSPrintInfo.shared.paperSize
+    return size.width > 100 && size.height > 100 ? size : CGSize(width: 612, height: 792)
+}
 private let markdownPDFMargin: CGFloat = 2 * 72 / 2.54
-private let markdownPDFContentWidth = markdownPDFPageSize.width - markdownPDFMargin * 2
 
 /// JS que junta los bordes inferiores de los elementos "seguros para cortar" (párrafo,
 /// ítem de lista, fila de tabla, título, bloque de código, cita, imagen) — el resultado
-/// (JSON, array de Y en px CSS desde el borde superior del documento) le dice a
+/// (JSON con el alto del documento y los Y en px CSS desde su borde superior) le dice a
 /// paginate() dónde SÍ puede terminar una página sin partir un renglón al medio.
 private let markdownPageBreakPointsJS = """
-JSON.stringify(Array.from(new Set(
-  Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,tr,pre,blockquote,hr,img'))
-    .map(function(el) { return Math.round(el.getBoundingClientRect().bottom); })
+JSON.stringify({height: document.documentElement.scrollHeight, breaks: Array.from(new Set(
+  Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,tr,pre,blockquote,hr,img,.mermaid-diagram'))
+    .map(function(el) { return el.getBoundingClientRect().bottom; })
     .filter(function(y) { return y > 0; })
-)).sort(function(a, b) { return a - b; }))
+)).sort(function(a, b) { return a - b; })})
 """
 
 /// `WKWebView.createPDF` sin `rect` explícito NO pagina por `@page` del CSS: genera una
@@ -213,7 +215,7 @@ JSON.stringify(Array.from(new Set(
 /// sistema de coordenadas — ver markdownPageBreakPointsJS) evita partir un renglón al
 /// medio: cada corte de página se ajusta al candidato más cercano por debajo del alto
 /// ideal, en vez de cortar a una altura fija ciega.
-private func paginate(_ singlePagePDF: Data, pageSize: CGSize, margin: CGFloat, breakPoints: [CGFloat]) -> Data? {
+private func paginate(_ singlePagePDF: Data, pageSize: CGSize, margin: CGFloat, domHeight: CGFloat, breakPoints: [CGFloat]) -> Data? {
     guard let provider = CGDataProvider(data: singlePagePDF as CFData),
           let sourceDocument = CGPDFDocument(provider),
           let sourcePage = sourceDocument.page(at: 1)
@@ -224,37 +226,36 @@ private func paginate(_ singlePagePDF: Data, pageSize: CGSize, margin: CGFloat, 
     let contentHeight = pageSize.height - margin * 2
     guard contentHeight > 0, sourceBox.width > 0, sourceBox.height > 0 else { return nil }
 
-    // createPDF puede entregar la página al factor de escala real de la pantalla (2x en
-    // Retina), no 1pt-por-CSS-px: no se puede asumir que el ancho de la página fuente
-    // coincide con markdownPDFContentWidth. Se mide el ancho real y se calcula la
-    // escala necesaria para llevarlo al ancho de contenido de la hoja de destino.
-    let scale = contentWidth / sourceBox.width
+    // Dos sistemas de coordenadas: el DOM (px CSS, el de breakPoints, ancho domWidth) y
+    // la página fuente de createPDF, que puede venir al factor de escala de la pantalla
+    // (2x en Retina). Los cortes se calculan en DOM y se convierten al dibujar; mezclarlos
+    // descuadraba los cortes en pantallas Retina.
+    // La relación DOM→fuente sale de los ALTOS (scrollHeight vs alto del PDF): el ancho
+    // del frame se redondea a px enteros y, usado como escala, el error se acumulaba
+    // página a página hasta cortar a mitad de un párrafo.
+    let sourcePerDOM = domHeight > 0 ? sourceBox.height / domHeight : 1
+    let pagePerSource = contentWidth / sourceBox.width
+    let pagePerDOM = pagePerSource * sourcePerDOM
     let sourceHeight = sourceBox.height
-    let maxContentPerPage = contentHeight / scale
+    let maxContentPerPage = contentHeight / pagePerDOM
     let sortedBreaks = breakPoints.sorted()
-    // El WKWebView reporta el alto de documento como máximo(alto real del contenido,
-    // alto del viewport) — con un documento corto en un frame de 800pt, scrollHeight
-    // (y por lo tanto sourceHeight acá) sale inflado a 800 aunque el contenido real
-    // termine mucho antes, dejando "relleno" en blanco que el bucle de abajo pagina
-    // igual. Se corta en el último punto de corte real (fin del último párrafo/fila/
-    // título), no en sourceHeight, para no generar una página vacía por ese relleno.
-    let contentBottom = sortedBreaks.last ?? sourceHeight
+    // El alto de documento puede salir inflado al alto del viewport (800) aunque el
+    // contenido termine antes: se corta en el último punto de corte real.
+    let contentBottom = sortedBreaks.last ?? sourceHeight / sourcePerDOM
 
-    // Recorre el documento de arriba hacia abajo (coordenadas DOM, 0 en el borde
-    // superior) armando páginas: cada una toma tanto contenido como entre hasta el
-    // candidato de corte válido más grande que no pase el alto ideal.
+    // Recorre el documento de arriba hacia abajo (DOM, 0 en el borde superior): cada
+    // página toma hasta el candidato de corte más bajo que no pase el alto de la hoja.
     var pageRanges: [(top: CGFloat, bottom: CGFloat)] = []
     var currentTop: CGFloat = 0
     while currentTop < contentBottom - 0.5 {
         let idealBottom = min(currentTop + maxContentPerPage, contentBottom)
         let candidate = sortedBreaks.last { $0 > currentTop + 1 && $0 <= idealBottom }
-        // Sin candidato válido (un solo elemento más alto que una página entera): corte
-        // duro en el ideal, mejor una página con un salto feo que un bucle infinito.
+        // Sin candidato (un elemento más alto que una hoja): corte duro en el ideal.
         let bottom = candidate ?? idealBottom
         pageRanges.append((currentTop, bottom))
         currentTop = bottom
     }
-    if pageRanges.isEmpty { pageRanges = [(0, sourceHeight)] }
+    if pageRanges.isEmpty { pageRanges = [(0, contentBottom)] }
 
     let output = NSMutableData()
     guard let consumer = CGDataConsumer(data: output as CFMutableData) else { return nil }
@@ -267,17 +268,16 @@ private func paginate(_ singlePagePDF: Data, pageSize: CGSize, margin: CGFloat, 
         // Todo lo que caiga fuera de la caja de contenido (dentro del margen) se descarta:
         // sin este clip, dibujar la página origen completa la desbordaría en las 4
         // direcciones sobre cada hoja.
-        context.clip(to: CGRect(x: margin, y: margin, width: contentWidth, height: contentHeight))
-        // Se ancla el borde SUPERIOR de la porción al tope de la caja de contenido (no
-        // el inferior): así el contenido fluye desde arriba y el espacio que sobra en
-        // la última página (más corta que una hoja completa) queda abajo, como en
-        // cualquier documento normal — anclar por abajo lo empujaba al fondo de la hoja
-        // dejando un hueco enorme arriba en toda página que no llenara el margen entero.
-        // PDF crece en Y hacia arriba; range.top está en coordenadas DOM (Y hacia abajo
-        // desde el tope del documento) — hay que convertir al sistema de la página origen.
-        let sliceTopInSource = sourceHeight - range.top
-        context.translateBy(x: margin, y: margin + contentHeight - scale * sliceTopInSource)
-        context.scaleBy(x: scale, y: scale)
+        // El recorte es SOLO la porción de esta página (top…bottom), anclada arriba. Antes
+        // recortaba la hoja entera: lo que quedaba entre el corte y el borde inferior se
+        // dibujaba igual y se repetía al principio de la página siguiente.
+        let sliceHeight = (range.bottom - range.top) * pagePerDOM
+        context.clip(to: CGRect(x: margin, y: margin + contentHeight - sliceHeight, width: contentWidth, height: sliceHeight))
+        // PDF crece en Y hacia arriba: el borde superior de la porción (DOM range.top) va
+        // al tope de la caja de contenido.
+        let sliceTopInSource = sourceHeight - range.top * sourcePerDOM
+        context.translateBy(x: margin, y: margin + contentHeight - pagePerSource * sliceTopInSource)
+        context.scaleBy(x: pagePerSource, y: pagePerSource)
         context.drawPDFPage(sourcePage)
         context.restoreGState()
         context.endPDFPage()
@@ -314,6 +314,9 @@ private final class MarkdownPDFGenerator: NSObject, WKNavigationDelegate {
 
     private var webView: WKWebView?
     private var completion: ((Data?) -> Void)?
+    private var pageSize = CGSize(width: 612, height: 792)
+    private var domWidth: CGFloat = 468
+    private var domHeight: CGFloat = 0
 
     static func generate(html rawHTML: String, baseURL: URL?, completion: @escaping (Data?) -> Void) {
         let html = rawHTML.replacingOccurrences(
@@ -322,20 +325,22 @@ private final class MarkdownPDFGenerator: NSObject, WKNavigationDelegate {
         )
         let generator = MarkdownPDFGenerator()
         generator.completion = completion
+        generator.pageSize = markdownPDFPageSize
+        generator.domWidth = generator.pageSize.width - markdownPDFMargin * 2
         active.append(generator)
 
         // El ancho del frame SÍ importa (determina dónde envuelve el texto); el alto no
         // — createPDF sin `rect` captura la altura completa de scroll del documento, no
         // el alto del frame. Se usa el ancho de contenido (carta menos los 2 márgenes)
         // para que el resultado ya venga al ancho final y paginate() no tenga que escalar.
-        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: markdownPDFContentWidth, height: 800))
+        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: generator.domWidth, height: 800))
         webView.navigationDelegate = generator
         generator.webView = webView
         webView.loadHTMLString(html, baseURL: baseURL)
     }
 
     private func finish(_ data: Data?, breakPoints: [CGFloat]) {
-        completion?(data.flatMap { paginate($0, pageSize: markdownPDFPageSize, margin: markdownPDFMargin, breakPoints: breakPoints) })
+        completion?(data.flatMap { paginate($0, pageSize: pageSize, margin: markdownPDFMargin, domHeight: domHeight, breakPoints: breakPoints) })
         completion = nil
         webView = nil
         MarkdownPDFGenerator.active.removeAll { $0 === self }
@@ -346,9 +351,10 @@ private final class MarkdownPDFGenerator: NSObject, WKNavigationDelegate {
         // layouteado: son coordenadas de pantalla (getBoundingClientRect), no algo que
         // se pueda derivar del PDF ya generado.
         webView.evaluateJavaScript(markdownPageBreakPointsJS) { [weak self] result, _ in
-            let breakPoints = ((result as? String).flatMap { $0.data(using: .utf8) }
-                .flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [Double])?
-                .map { CGFloat($0) } ?? []
+            let measured = (result as? String).flatMap { $0.data(using: .utf8) }
+                .flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
+            let breakPoints = (measured?["breaks"] as? [Double])?.map { CGFloat($0) } ?? []
+            self?.domHeight = CGFloat(measured?["height"] as? Double ?? 0)
             webView.createPDF(configuration: WKPDFConfiguration()) { [weak self] result in
                 self?.finish(try? result.get(), breakPoints: breakPoints)
             }
@@ -368,8 +374,7 @@ private final class MarkdownPDFGenerator: NSObject, WKNavigationDelegate {
 /// (no NSAttributedString/NSTextView — ver nota de MarkdownPDFGenerator).
 func printMarkdownHTML(_ html: String, baseURL: URL?, jobTitle: String) {
     MarkdownPDFGenerator.generate(html: html, baseURL: baseURL) { data in
-        // paginate() ya cortó el contenido a markdownPDFPageSize: NSPrintInfo.shared
-        // podría traer otro tamaño de papel (A4 en vez de carta) y desalinear el corte.
+        // paginate() ya cortó el contenido al papel de la impresora (markdownPDFPageSize).
         let info = NSPrintInfo.shared.copy() as! NSPrintInfo
         info.paperSize = markdownPDFPageSize
         guard let data, let document = PDFDocument(data: data),

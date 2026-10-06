@@ -105,6 +105,48 @@ li > input[type="checkbox"] {
   vertical-align: middle;
 }
 
+/* Casilla clicable de la preview (MarkdownHTMLExtensions.clickableTasks). */
+li.task-list-item { list-style: none; }
+ul:has(> li.task-list-item) { padding-left: 1.4em; }
+a.task-toggle { margin-left: -1.4em; margin-right: 0.4em; text-decoration: none; cursor: default; }
+.task-box {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  vertical-align: -0.1em;
+  border: 1.5px solid var(--md-muted);
+  border-radius: 0.2em;
+  box-sizing: border-box;
+}
+.task-box.checked { background: var(--md-link); border-color: var(--md-link); position: relative; }
+.task-box.checked::after {
+  content: "";
+  position: absolute;
+  left: 0.27em;
+  top: 0.08em;
+  width: 0.22em;
+  height: 0.45em;
+  border: solid var(--md-bg);
+  border-width: 0 0.12em 0.12em 0;
+  transform: rotate(45deg);
+}
+
+/* ---------- Alertas de GitHub ("> [!NOTE]") ---------- */
+
+blockquote.markdown-alert { color: var(--md-fg); background: transparent; border-left-color: var(--alert-color); }
+.markdown-alert-title { color: var(--alert-color); font-weight: 600; margin-bottom: 0.25em; }
+.markdown-alert-note { --alert-color: #0969da; }
+.markdown-alert-tip { --alert-color: #1a7f37; }
+.markdown-alert-important { --alert-color: #8250df; }
+.markdown-alert-warning { --alert-color: #9a6700; }
+.markdown-alert-caution { --alert-color: #d1242f; }
+:root[data-theme="dark"] .markdown-alert-note { --alert-color: #4493f8; }
+:root[data-theme="dark"] .markdown-alert-tip { --alert-color: #3fb950; }
+:root[data-theme="dark"] .markdown-alert-important { --alert-color: #ab7df8; }
+:root[data-theme="dark"] .markdown-alert-warning { --alert-color: #d29922; }
+:root[data-theme="dark"] .markdown-alert-caution { --alert-color: #f85149; }
+.markdown-alert p:empty { display: none; }
+
 /* ---------- Código ---------- */
 
 code, pre, tt {
@@ -202,3 +244,15 @@ section.footnotes {
    reglas equivalentes se inyectan ahí como <style> normal (markdownPrintOverrideCSS),
    pisando lo de arriba por orden de cascada. Margen de hoja: paginate() en
    Printing.swift, no @page (ídem, ignorado por createPDF). */
+
+/* ---------- Diagramas Mermaid (MermaidRenderer.swift) ---------- */
+
+.mermaid-diagram { margin: 0 0 1em; text-align: center; }
+.mermaid-diagram img { max-width: 100%; height: auto; }
+.mermaid-error {
+  margin: 0 0 0.5em;
+  padding: 0.5em 0.8em;
+  border-left: 0.35em solid #d1242f;
+  color: var(--md-fg);
+  font-size: 0.9em;
+}

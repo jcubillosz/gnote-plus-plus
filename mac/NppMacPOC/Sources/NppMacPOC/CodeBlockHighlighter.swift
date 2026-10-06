@@ -100,6 +100,13 @@ func decorateFencedCodeBlocks(_ html: String, theme: EditorTheme) -> String {
         let bodyEscaped = ns.substring(with: match.range(at: 3))
 
         let tag = unescapeHTMLText(tagEscaped)
+        if tag.lowercased() == "mermaid",
+           let diagram = mermaidDiagramHTML(source: unescapeHTMLText(bodyEscaped), dark: theme == .dark,
+                                            attributes: preAttrs) {
+            out += diagram
+            cursor = match.range.location + match.range.length
+            continue
+        }
         var body = bodyEscaped
         if let profile = codeLanguageProfile(for: tag, theme: theme) {
             let code = unescapeHTMLText(bodyEscaped)

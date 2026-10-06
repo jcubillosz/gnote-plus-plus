@@ -68,6 +68,19 @@ struct LanguageProfile {
     let keywords: [Int: String]
     // styleID (SCE_* real del lexer) → color fg/bg/fontStyle.
     let styles: [Int: StyleSpec]
+    /// Sintaxis de comentarios (commentLine/commentStart/commentEnd de langs.model.xml), usada
+    /// por "Comentar/descomentar" en LineOperations.
+    var comment = CommentSyntax()
+    /// Nombre de Notepad++ (`<Language name>`): elige la regla de functionList/<nombre>.xml.
+    var languageName = ""
+}
+
+struct CommentSyntax: Equatable {
+    var line: String?
+    var blockStart: String?
+    var blockEnd: String?
+
+    var isAvailable: Bool { line != nil || (blockStart != nil && blockEnd != nil) }
 }
 
 private func hexRRGGBBToScintillaBGR(_ hex: String) -> sptr_t? {
@@ -151,6 +164,18 @@ private func rawKeywords(forLangName langName: String) -> [Int: String] {
     let upstream = rawKeywords(fromXml: langsXmlPath, forLangName: langName)
     if !upstream.isEmpty { return upstream }
     return rawKeywords(fromXml: langsOverlayXmlPath, forLangName: langName)
+}
+
+private func commentSyntax(forLangName langName: String) -> CommentSyntax {
+    for xmlPath in [langsXmlPath, langsOverlayXmlPath] {
+        guard let raw = npp_lookup_comments(xmlPath, langName) else { continue }
+        defer { npp_free_string(raw) }
+        let parts = String(cString: raw).split(separator: "\u{1F}", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 3 else { continue }
+        func nonEmpty(_ s: String) -> String? { s.isEmpty ? nil : s }
+        return CommentSyntax(line: nonEmpty(parts[0]), blockStart: nonEmpty(parts[1]), blockEnd: nonEmpty(parts[2]))
+    }
+    return CommentSyntax()
 }
 
 private func parseStyles(_ raw: String) -> [Int: StyleSpec] {
@@ -240,7 +265,7 @@ func languageMenuGroups() -> [(label: String, names: [String])] {
 // su instre1→SCI 4 (índices confirmados leyendo setHTMLLexer/setEmbeddedJSLexer/
 // setEmbeddedPhpLexer). Los estilos de los 3 lenguajes no chocan: usan rangos SCE_H_*/
 // SCE_HJ_*/SCE_HPHP_* distintos dentro del mismo lexer "hypertext".
-private func htmlFamilyProfile(theme: EditorTheme) -> LanguageProfile {
+private func htmlFamilyProfile(langName: String, theme: EditorTheme) -> LanguageProfile {
     let htmlKw = rawKeywords(forLangName: "html")
     let jsKw = rawKeywords(forLangName: "javascript")
     let phpKw = rawKeywords(forLangName: "php")
@@ -256,14 +281,14 @@ private func htmlFamilyProfile(theme: EditorTheme) -> LanguageProfile {
     styles.merge(rawStyles(forLangName: "javascript", theme: theme)) { _, new in new }
     styles.merge(rawStyles(forLangName: "php", theme: theme)) { _, new in new }
 
-    return LanguageProfile(lexerName: "hypertext", keywords: keywords, styles: styles)
+    return LanguageProfile(lexerName: "hypertext", keywords: keywords, styles: styles, comment: commentSyntax(forLangName: "html"), languageName: langName)
 }
 
 private func profile(forLangName langName: String, keywords: [Int: String], theme: EditorTheme) -> LanguageProfile {
     let remapped = remapKeywordIndices(keywords, forLanguage: langName)
     let lexerName = lexillaLexerName(forLanguageName: langName)
     let styles = rawStyles(forLangName: stylerLookupName(forLanguageName: langName), theme: theme)
-    return LanguageProfile(lexerName: lexerName, keywords: remapped, styles: styles)
+    return LanguageProfile(lexerName: lexerName, keywords: remapped, styles: styles, comment: commentSyntax(forLangName: langName), languageName: langName)
 }
 
 func languageProfile(forExtension ext: String, theme: EditorTheme) -> LanguageProfile {
@@ -283,7 +308,7 @@ func languageProfile(forExtension ext: String, theme: EditorTheme) -> LanguagePr
     }
 
     if htmlFamilyLangNames.contains(langName) {
-        return htmlFamilyProfile(theme: theme)
+        return htmlFamilyProfile(langName: langName, theme: theme)
     }
 
     return profile(forLangName: langName, keywords: keywords, theme: theme)
@@ -293,7 +318,7 @@ func languageProfile(forExtension ext: String, theme: EditorTheme) -> LanguagePr
 /// override manual del usuario, solo para la sesión actual (no persiste).
 func languageProfile(byLanguageName langName: String, theme: EditorTheme) -> LanguageProfile {
     if htmlFamilyLangNames.contains(langName) {
-        return htmlFamilyProfile(theme: theme)
+        return htmlFamilyProfile(langName: langName, theme: theme)
     }
     return profile(forLangName: langName, keywords: rawKeywords(forLangName: langName), theme: theme)
 }
@@ -342,6 +367,13 @@ func applyLockTint(_ editor: ScintillaView, theme: EditorTheme) {
 func applyLanguage(_ editor: ScintillaView, profile: LanguageProfile) {
     let lexerPtr = Lexilla_CreateLexer(profile.lexerName)
     _ = ScintillaView.directCall(editor, message: SCI_SETILEXER, wParam: 0, lParam: sptr_t(bitPattern: lexerPtr))
+
+    // Plegado de código: cada lexer de Lexilla calcula los niveles solo si "fold" está activo.
+    // Las propiedades son por lexer, así que se reaplican cada vez que se crea uno nuevo.
+    for (key, value) in [("fold", "1"), ("fold.compact", "0"), ("fold.comment", "1"),
+                         ("fold.preprocessor", "1"), ("fold.html", "1"), ("fold.markdown", "1")] {
+        setLexerProperty(editor, key, value)
+    }
 
     _ = ScintillaView.directCall(editor, message: SCI_STYLECLEARALL, wParam: 0, lParam: 0)
 

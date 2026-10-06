@@ -34,11 +34,13 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
     /// origen (1-based). ContentView decide el cambio de modo y mueve el caret del editor
     /// — este ViewModel no conoce a TabsViewModel/ScintillaView.
     var onJumpToSourceLine: ((Int) -> Void)?
+    /// Clic en una casilla de tarea de la preview: línea del fuente (1-based) a marcar.
+    var onToggleTask: ((Int) -> Void)?
 
     /// Creado una sola vez acá, no en el NSViewRepresentable: SwiftUI recrea structs
     /// a cada render, y un WebView nuevo por render sería un proceso de contenido
     /// nuevo cada vez.
-    let webView: WKWebView
+    let webView: PreviewWebView
     private let handler = MarkdownPreviewSchemeHandler()
     private var pendingRefresh: DispatchWorkItem?
 
@@ -53,7 +55,7 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
         config.defaultWebpagePreferences.allowsContentJavaScript = false
         config.websiteDataStore = .nonPersistent()
 
-        webView = WKWebView(frame: .zero, configuration: config)
+        webView = PreviewWebView(frame: .zero, configuration: config)
         super.init()
         webView.navigationDelegate = self
 
@@ -64,7 +66,65 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
         doubleClick.numberOfClicksRequired = 2
         doubleClick.delaysPrimaryMouseButtonEvents = false
         webView.addGestureRecognizer(doubleClick)
+        webView.menuCustomizer = { [weak self] menu, point in MainActor.assumeIsolated { self?.customizeImageMenu(menu, at: point) } }
+
+        // Diagramas Mermaid listos (se dibujan aparte, ver MermaidRenderer): se repite el
+        // último render, que ahora los encuentra en caché.
+        NotificationCenter.default.addObserver(forName: MermaidRenderer.didRenderNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self, let last = self.lastRender, let editor = last.editor, let document = last.document,
+                  self.mode != .editor else { return }
+            self.refreshNow(editor: editor, document: document, theme: last.theme)
+        }
     }
+
+    /// Menú contextual sobre una imagen: "Descargar imagen" y "Abrir en ventana nueva" no
+    /// pueden funcionar (la preview no navega ni descarga), así que se reemplazan por las
+    /// acciones de diagrama. Qué diagrama es se resuelve al elegir la acción (el menú se
+    /// arma sincrónico y el DOM solo se consulta async).
+    @MainActor
+    private func customizeImageMenu(_ menu: NSMenu, at point: NSPoint) {
+        let identifiers = menu.items.map { $0.identifier?.rawValue ?? "" }
+        guard identifiers.contains(where: { $0.contains("Image") }) else { return }
+        for item in menu.items where (item.identifier?.rawValue ?? "").contains("DownloadImage")
+            || (item.identifier?.rawValue ?? "").contains("OpenImageInNewWindow") {
+            menu.removeItem(item)
+        }
+        menu.addItem(.separator())
+        let actions: [(String, @MainActor (String, Document?) -> Void)] = [
+            (L("Guardar diagrama como PNG…"), { MermaidExport.save(.png, source: $0, document: $1) }),
+            (L("Guardar diagrama como SVG…"), { MermaidExport.save(.svg, source: $0, document: $1) }),
+            (L("Copiar diagrama como imagen"), { source, _ in MermaidExport.copyImage(source: source) }),
+        ]
+        for (title, action) in actions {
+            let item = ClosureMenuItem(title: title) { [weak self] in self?.diagramSource(at: point) { source, document in
+                action(source, document)
+            } }
+            menu.addItem(item)
+        }
+    }
+
+    @MainActor
+    private func diagramSource(at point: NSPoint, _ completion: @escaping @MainActor (String, Document?) -> Void) {
+        let zoom = webView.pageZoom
+        let js = "(function(){var e=document.elementFromPoint(\(point.x / zoom), \(point.y / zoom));e=e&&e.closest('.mermaid-diagram');return e?e.getAttribute('data-sourcepos'):null})()"
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
+            guard let self, let sourcepos = result as? String, let editor = self.lastRender?.editor,
+                  let source = MermaidExport.source(fromSourcepos: sourcepos, text: currentText(editor)) else {
+                let alert = NSAlert()
+                alert.messageText = L("Esta imagen no es un diagrama Mermaid.")
+                alert.runModal()
+                return
+            }
+            completion(source, self.lastRender?.document)
+        }
+    }
+
+    private struct LastRender {
+        weak var editor: ScintillaView?
+        weak var document: Document?
+        let theme: MarkdownTheme
+    }
+    private var lastRender: LastRender?
 
     /// `allowsContentJavaScript = false` bloquea el JS embebido en el HTML renderizado,
     /// no las llamadas que la app misma hace vía evaluateJavaScript — por eso esto funciona
@@ -86,6 +146,14 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
                   let line = MarkdownPreviewViewModel.startLine(fromSourcepos: sourcepos) else { return }
             self.onJumpToSourceLine?(line)
         }
+    }
+
+    /// Lleva la preview al primer elemento renderizado cuyo `data-sourcepos` empieza en `line`
+    /// (1-based) o después — navegación desde el esquema de secciones. Mismo canal que
+    /// handleDoubleClick: evaluateJavaScript de la app, no JS del contenido.
+    func scrollToSourceLine(_ line: Int) {
+        let js = "(function(){var els=document.querySelectorAll('[data-sourcepos]');for(var i=0;i<els.length;i++){var l=parseInt(els[i].getAttribute('data-sourcepos'),10);if(l>=\(line)){els[i].scrollIntoView({block:'start'});return;}}})()"
+        webView.evaluateJavaScript(js)
     }
 
     /// Parsea el `data-sourcepos` de cmark-gfm, formato `"L:C-L:C"` (línea:columna inicio -
@@ -142,7 +210,7 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
     }
 
     private func syncScrollNow(editor: ScintillaView) {
-        let firstVisible = ScintillaView.directCall(editor, message: SCI_GETFIRSTVISIBLELINE, wParam: 0, lParam: 0)
+        let firstVisible = firstVisibleDocumentLine(editor)
         let linesOnScreen = ScintillaView.directCall(editor, message: SCI_LINESONSCREEN, wParam: 0, lParam: 0)
         let lineCount = ScintillaView.directCall(editor, message: SCI_GETLINECOUNT, wParam: 0, lParam: 0)
         let denominator = max(1, Int(lineCount) - Int(linesOnScreen))
@@ -166,6 +234,7 @@ final class MarkdownPreviewViewModel: NSObject, ObservableObject {
         let sameDocument = (lastRenderedDocumentID == document.id)
         lastRenderedDocumentID = document.id
 
+        lastRender = LastRender(editor: editor, document: document, theme: theme)
         let markdown = currentText(editor)
         let html = renderMarkdownDocument(
             markdown,
@@ -222,6 +291,12 @@ extension MarkdownPreviewViewModel: WKNavigationDelegate {
             return
         }
         decisionHandler(.cancel)
+        if url.scheme == markdownTaskScheme {
+            if let line = Int(url.absoluteString.dropFirst(markdownTaskScheme.count + 1)) {
+                onToggleTask?(line)
+            }
+            return
+        }
         if url.scheme == "http" || url.scheme == "https" || url.scheme == "mailto" {
             NSWorkspace.shared.open(url)
         }
@@ -240,7 +315,10 @@ struct MarkdownPreviewView: NSViewRepresentable {
     @ObservedObject var preview: MarkdownPreviewViewModel
 
     func makeNSView(context: Context) -> NSView {
-        let container = NSView()
+        // Contenedor por frame (mismo que el del editor), no Auto Layout: con constraints,
+        // el WKWebView sumaba un pedido de updateConstraints más cada vez que el pane
+        // cambiaba de ancho al alternar el modo de vista.
+        let container = SharedEditorContainer()
         adopt(preview.webView, into: container)
         return container
     }
@@ -252,13 +330,37 @@ struct MarkdownPreviewView: NSViewRepresentable {
     private func adopt(_ webView: WKWebView, into container: NSView) {
         guard webView.superview !== container else { return }
         webView.removeFromSuperview()
-        webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.translatesAutoresizingMaskIntoConstraints = true
+        webView.frame = container.bounds
         container.addSubview(webView)
-        NSLayoutConstraint.activate([
-            webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            webView.topAnchor.constraint(equalTo: container.topAnchor),
-            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
+        container.needsLayout = true
     }
+}
+
+
+/// WKWebView de la preview: deja retocar el menú contextual (ver customizeImageMenu).
+final class PreviewWebView: WKWebView {
+    var menuCustomizer: ((NSMenu, NSPoint) -> Void)?
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+        // WKWebView es flipped: el punto ya está en px de viewport (ver handleDoubleClick).
+        menuCustomizer?(menu, convert(event.locationInWindow, from: nil))
+    }
+}
+
+/// NSMenuItem con un closure como acción (evita un target/selector por ítem).
+final class ClosureMenuItem: NSMenuItem {
+    private let handler: () -> Void
+
+    init(title: String, handler: @escaping () -> Void) {
+        self.handler = handler
+        super.init(title: title, action: #selector(run), keyEquivalent: "")
+        target = self
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) { fatalError("init(coder:) no se usa") }
+
+    @objc private func run() { handler() }
 }

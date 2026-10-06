@@ -43,6 +43,10 @@ struct ScintillaEditorView: NSViewRepresentable {
     var onSpellCheckAction: (() -> Void)?
     /// Se soltó un archivo/carpeta de Finder sobre el editor (Task 12, ver SCN_URIDROPPED).
     var onURIDropped: ((URL) -> Void)?
+    /// Cambió la selección (SC_UPDATE_SELECTION): dispara el smart highlight.
+    var onSelectionChanged: (() -> Void)?
+    /// Se escribió un carácter (SCN_CHARADDED): dispara el autocompletado.
+    var onCharAdded: ((Int) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         let coordinator = Coordinator(statusBar: statusBar, editor: editor, document: document, spellCheck: spellCheck)
@@ -58,6 +62,7 @@ struct ScintillaEditorView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let container = SharedEditorContainer()
         editor.delegate = context.coordinator
+        context.coordinator.installContextMenuProvider()
         adopt(into: container)
         return container
     }
@@ -73,8 +78,11 @@ struct ScintillaEditorView: NSViewRepresentable {
         context.coordinator.onModifyAttemptReadOnly = onModifyAttemptReadOnly
         context.coordinator.onSpellCheckAction = onSpellCheckAction
         context.coordinator.onURIDropped = onURIDropped
+        context.coordinator.onSelectionChanged = onSelectionChanged
+        context.coordinator.onCharAdded = onCharAdded
         if editor.delegate !== context.coordinator {
             editor.delegate = context.coordinator
+            context.coordinator.installContextMenuProvider()
         }
         adopt(into: container)
     }
@@ -134,10 +142,10 @@ struct ScintillaEditorView: NSViewRepresentable {
         var onSpellCheckAction: (() -> Void)?
         /// Avisa que se soltó un archivo/carpeta sobre el editor (Task 12, ver SCN_URIDROPPED).
         var onURIDropped: ((URL) -> Void)?
-        /// Monitor local de clic derecho para el menú de corrector — ver comentario de
-        /// SpellCheckContextMenu sobre por qué este mecanismo y no un subclass/swizzle del
-        /// framework Scintilla.
-        private var spellContextMenuMonitor: Any?
+        /// Avisa que cambió la selección (ver SC_UPDATE_SELECTION en SCN_UPDATEUI).
+        var onSelectionChanged: (() -> Void)?
+        /// Avisa el carácter recién escrito (ver SCN_CHARADDED).
+        var onCharAdded: ((Int) -> Void)?
 
         init(statusBar: StatusBarViewModel, editor: ScintillaView?, document: Document? = nil, spellCheck: SpellCheckViewModel) {
             self.statusBar = statusBar
@@ -145,41 +153,55 @@ struct ScintillaEditorView: NSViewRepresentable {
             self.document = document
             self.spellCheck = spellCheck
             super.init()
-            spellContextMenuMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
-                self?.handleRightMouseDown(event) ?? event
-            }
         }
 
         deinit {
             if editor?.delegate === self {
                 editor?.delegate = nil
-            }
-            if let spellContextMenuMonitor {
-                NSEvent.removeMonitor(spellContextMenuMonitor)
+                (editor as? ContextMenuScintillaView)?.contextMenuProvider = nil
             }
         }
 
-        /// Intercepta el clic derecho antes de que Scintilla abra su menú nativo. Si cae sobre
-        /// una palabra marcada por el corrector (INDICATOR_SPELL), muestra el menú de
-        /// sugerencias/aprender/ignorar propio y devuelve nil (swallow); en cualquier otro
-        /// caso devuelve el evento tal cual, para que el menú contextual normal siga andando.
-        private func handleRightMouseDown(_ event: NSEvent) -> NSEvent? {
-            guard let editor, let window = event.window, window == editor.window else { return event }
-            guard spellCheck.enabled, let document else { return event }
-            let locationInEditor = editor.convert(event.locationInWindow, from: nil)
-            guard editor.bounds.contains(locationInEditor) else { return event }
+        /// Se llama junto con cada asignación de `editor.delegate`: el coordinator vigente es
+        /// el único que debe construir el menú contextual.
+        func installContextMenuProvider() {
+            (editor as? ContextMenuScintillaView)?.contextMenuProvider = { [weak self] event in
+                self?.spellContextMenu(for: event)
+            }
+        }
 
+        /// Menú del corrector si el clic derecho/ctrl+click cae sobre una palabra marcada
+        /// (INDICATOR_SPELL); nil en cualquier otro caso, y Scintilla muestra su menú nativo.
+        private func spellContextMenu(for event: NSEvent) -> NSMenu? {
+            guard let editor, spellCheck.enabled, let document else { return nil }
+            // Coordenadas de cliente de Scintilla: relativas al SCIContentView (flipped, sin
+            // scroller) menos el origen visible del scroll, más el ancho de los márgenes —
+            // en Cocoa los márgenes viven en un NSRulerView aparte, pero los mensajes
+            // SCI_POSITIONFROMPOINT* siguen contando x desde el borde izquierdo de los
+            // márgenes (ver MoveFindIndicatorWithBounce en scintilla/cocoa/ScintillaCocoa.mm).
+            // Convertir al ScintillaView exterior (no flipped) invertía la Y y la posición casi
+            // nunca caía sobre la palabra marcada, así que el menú de sugerencias no aparecía
+            // (bug real de QA manual).
+            guard let content = editor.content() else { return nil }
+            let pointInContent = content.convert(event.locationInWindow, from: nil)
+            guard content.visibleRect.contains(pointInContent) else { return nil }
+            let scrollOrigin = content.enclosingScrollView?.contentView.bounds.origin ?? .zero
+            let clientX = pointInContent.x - scrollOrigin.x + CGFloat(marginsWidth(editor))
+            let clientY = pointInContent.y - scrollOrigin.y
+
+            // POSITIONFROMPOINTCLOSE devuelve -1 fuera de un carácter (margen derecho, debajo
+            // de la última línea), en vez de la posición más cercana.
             let pos = Int(ScintillaView.directCall(
-                editor, message: SCI_POSITIONFROMPOINT,
-                wParam: uptr_t(Int(locationInEditor.x)),
-                lParam: sptr_t(Int(locationInEditor.y))
+                editor, message: SCI_POSITIONFROMPOINTCLOSE,
+                wParam: uptr_t(max(0, Int(clientX))),
+                lParam: sptr_t(max(0, Int(clientY)))
             ))
-            guard pos >= 0 else { return event }
+            guard pos >= 0 else { return nil }
 
             let indicatorValue = ScintillaView.directCall(
                 editor, message: SCI_INDICATORVALUEAT, wParam: uptr_t(INDICATOR_SPELL), lParam: sptr_t(pos)
             )
-            guard indicatorValue != 0 else { return event }
+            guard indicatorValue != 0 else { return nil }
 
             let wordStart = Int(ScintillaView.directCall(
                 editor, message: SCI_INDICATORSTART, wParam: uptr_t(INDICATOR_SPELL), lParam: sptr_t(pos)
@@ -187,15 +209,26 @@ struct ScintillaEditorView: NSViewRepresentable {
             let wordEnd = Int(ScintillaView.directCall(
                 editor, message: SCI_INDICATOREND, wParam: uptr_t(INDICATOR_SPELL), lParam: sptr_t(pos)
             ))
-            guard wordEnd > wordStart else { return event }
+            guard wordEnd > wordStart else { return nil }
 
-            let menu = SpellCheckContextMenu.build(
+            // Igual que NSTextView: el clic derecho selecciona la palabra bajo el cursor.
+            _ = ScintillaView.directCall(editor, message: SCI_SETSEL, wParam: uptr_t(wordStart), lParam: sptr_t(wordEnd))
+
+            return SpellCheckContextMenu.build(
                 editor: editor, document: document, spellCheck: spellCheck,
                 wordStart: wordStart, wordEnd: wordEnd,
                 onAction: { [weak self] in self?.onSpellCheckAction?() }
             )
-            NSMenu.popUpContextMenu(menu, with: event, for: editor)
-            return nil
+        }
+
+        /// Equivalente a ViewStyle::fixedColumnWidth (marginInside es el default).
+        private func marginsWidth(_ editor: ScintillaView) -> Int {
+            var width = Int(ScintillaView.directCall(editor, message: SCI_GETMARGINLEFT, wParam: 0, lParam: 0))
+            let count = Int(ScintillaView.directCall(editor, message: SCI_GETMARGINS, wParam: 0, lParam: 0))
+            for margin in 0..<count {
+                width += Int(ScintillaView.directCall(editor, message: SCI_GETMARGINWIDTHN, wParam: uptr_t(margin), lParam: 0))
+            }
+            return width
         }
 
         func notification(_ notification: UnsafeMutablePointer<SCNotification>!) {
@@ -205,6 +238,9 @@ struct ScintillaEditorView: NSViewRepresentable {
                 updateCursorAndSelection()
                 if Int(notification.pointee.updated) & SC_UPDATE_V_SCROLL != 0 {
                     onScrolled?()
+                }
+                if Int(notification.pointee.updated) & SC_UPDATE_SELECTION != 0 {
+                    onSelectionChanged?()
                 }
             case SCN_MODIFIED:
                 // SC_UPDATE_CONTENT (vía SCN_UPDATEUI) se disparaba también por el recoloreo
@@ -224,6 +260,15 @@ struct ScintillaEditorView: NSViewRepresentable {
                 onSavePointReached?()
             case SCN_MODIFYATTEMPTRO:
                 onModifyAttemptReadOnly?()
+            case SCN_MARGINCLICK:
+                // El margen de plegado lo maneja Scintilla (SC_AUTOMATICFOLD_CLICK); acá solo
+                // el de marcadores.
+                if Int(notification.pointee.margin) == MARGIN_BOOKMARKS, let editor {
+                    let line = ScintillaView.directCall(editor, message: SCI_LINEFROMPOSITION, wParam: uptr_t(notification.pointee.position), lParam: 0)
+                    toggleBookmark(editor: editor, line: Int(line))
+                }
+            case SCN_CHARADDED:
+                onCharAdded?(Int(notification.pointee.ch))
             case SCN_URIDROPPED:
                 if let cString = notification.pointee.text {
                     let path = String(cString: cString)
@@ -269,5 +314,19 @@ final class SharedEditorContainer: NSView {
         for subview in subviews where subview.frame != bounds {
             subview.frame = bounds
         }
+    }
+}
+
+/// ScintillaView con gancho para el menú contextual. SCIContentView.menuForEvent: le pregunta
+/// primero a su ScintillaView dueño (`[mOwner menuForEvent:]`, scintilla/cocoa/ScintillaView.mm)
+/// y solo si devuelve nil arma el menú nativo de Scintilla. Sobrescribir `menu(for:)` acá
+/// cubre clic derecho y ctrl+click por el camino normal de AppKit; un monitor local de
+/// rightMouseDown (el mecanismo anterior) no veía ctrl+click y además, tras cerrar el menú
+/// propio, AppKit igual mostraba el nativo encima.
+final class ContextMenuScintillaView: ScintillaView {
+    var contextMenuProvider: ((NSEvent) -> NSMenu?)?
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        contextMenuProvider?(event) ?? super.menu(for: event)
     }
 }

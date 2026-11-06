@@ -64,6 +64,19 @@ struct ContentView: View {
         DocumentActions(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preferences: preferences)
     }
 
+    private struct ActiveDocumentKey: Equatable {
+        let id: UUID?
+        let lexerName: String?
+        let languageName: String?
+    }
+
+    /// El índice no sirve de disparador: al cerrar la pestaña activa el vecino cae en el mismo
+    /// índice y el onChange no se enteraba del documento nuevo.
+    private var activeDocumentKey: ActiveDocumentKey {
+        let doc = tabs.activeDocument
+        return ActiveDocumentKey(id: doc?.id, lexerName: doc?.languageProfile.lexerName, languageName: doc?.languageProfile.languageName)
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView(fileTree: fileTree, actions: actions, onOpenFile: { tabs.open(url: $0) }, onRename: { url, newName in
@@ -82,7 +95,7 @@ struct ContentView: View {
                 // Prioridad de layout: el editor es flexible y nunca debe comprimir la barra
                 // de pestañas (alto fijo) cuando el VStack recalcula alturas.
                 if tabs.activeDocumentIsMarkdown {
-                    MarkdownFormatBar(tabs: tabs)
+                    MarkdownFormatBar(tabs: tabs, preferences: preferences)
                         .layoutPriority(1)
                     Divider()
                 }
@@ -185,11 +198,14 @@ struct ContentView: View {
             // Sin panel colapsado, "Abrir carpeta…" no da ninguna señal visible.
             if !isNil { columnVisibility = .all }
         }
+        .onChange(of: preferences.showDocumentMap) { _ in
+            DocumentMapView.applyMargin(to: tabs.editor, visible: preferences.showDocumentMap)
+        }
         .onChange(of: colorScheme) { newValue in
             tabs.applyTheme(editorTheme(for: newValue))
             refreshPreview()
         }
-        .onChange(of: tabs.activeIndex) { _ in
+        .onChange(of: activeDocumentKey) { _ in
             preview.cancelPendingScrollSync()
             refreshPreview()
             applyFocusForCurrentMode()
@@ -328,6 +344,11 @@ struct ContentView: View {
                         if document.languageProfile.lexerName == "markdown" {
                             MarkdownEditing.charAdded(character, editor: tabs.editor)
                         }
+                        if preferences.autoIndent && document.languageProfile.lexerName != "markdown" {
+                            AutoIndent.charAdded(character, editor: tabs.editor,
+                                                 lexerName: document.languageProfile.lexerName,
+                                                 tabWidth: preferences.tabWidth)
+                        }
                         if preferences.autoCloseBrackets {
                             AutoClose.charAdded(character, editor: tabs.editor,
                                                 isCode: AutoComplete.isEnabled(for: document.languageProfile))
@@ -337,15 +358,22 @@ struct ContentView: View {
                         AutoComplete.charAdded(character, editor: tabs.editor, document: document)
                     }
                 )
-                .overlay(alignment: .top) {
-                    if find.isVisible {
-                        FindBarView(editor: tabs.editor, find: find, isLocked: tabs.activeDocument?.isLocked == true)
+                .overlay(alignment: .trailing) {
+                    // Franja acotada al borde derecho (minimapa + scroller legacy, ≤ 24 pt):
+                    // el resto del editor no queda debajo de ninguna vista, así los clics y el
+                    // cursor no dependen del hitTest del contenedor.
+                    if preferences.showDocumentMap && tabs.activeIndex != nil {
+                        DocumentMapRepresentable(map: tabs.documentMap)
+                            .frame(width: DocumentMapView.width + 24)
                     }
                 }
-                if preferences.showDocumentMap && tabs.activeIndex != nil {
-                    Divider()
-                    DocumentMapRepresentable(map: tabs.documentMap)
-                        .frame(width: DocumentMapView.width)
+                .overlay(alignment: .top) {
+                    // Después del minimapa para quedar encima, y corrida a su izquierda: la barra
+                    // se alinea a la derecha y sus botones caían debajo de la franja del minimapa.
+                    if find.isVisible {
+                        FindBarView(editor: tabs.editor, find: find, isLocked: tabs.activeDocument?.isLocked == true)
+                            .padding(.trailing, preferences.showDocumentMap && tabs.activeIndex != nil ? DocumentMapView.width + 24 : 0)
+                    }
                 }
             }
         } preview: {

@@ -11,7 +11,7 @@ extension TabsViewModel {
     /// Recalcula qué carpetas observar a partir de los documentos abiertos. Barato si el
     /// conjunto no cambió (no recrea el stream).
     func updateWatchedFolders() {
-        let folders = Set(documents.compactMap { $0.url.map { canonicalFilePath($0.deletingLastPathComponent()) } }).sorted()
+        let folders = Set(documents.compactMap { $0.url.map { URL(fileURLWithPath: canonicalFilePath($0)).deletingLastPathComponent().path } }).sorted()
         guard folders != watchedFolders else { return }
         watchedFolders = folders
         openFilesWatcher?.stop()
@@ -68,6 +68,8 @@ extension TabsViewModel {
         guard document.needsReload || document.pendingExternalConflict else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self, document === self.activeDocument else { return }
+            // Un guardado entre el agendado y este bloque ya resolvió el cambio.
+            if let url = document.url, FileStamp.of(url) == document.diskStamp { return }
             if document.pendingExternalConflict, let url = document.url, let stamp = FileStamp.of(url) {
                 document.pendingExternalConflict = false
                 self.resolveExternalConflict(of: document, stamp: stamp)

@@ -465,10 +465,10 @@ License:             GPL2
             <WordsStyle name="DEFAULT" styleID="0" fgColor="D4D4D4" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="COMMENT" styleID="1" fgColor="6A9955" bgColor="1E1E1E" fontName="" fontStyle="3" fontSize="" />
             <WordsStyle name="COMMAND" styleID="2" fgColor="DBDBBC" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
-            <WordsStyle name="HEADER" styleID="3" fgColor="DEDEBE" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
-            <WordsStyle name="POSITION" styleID="4" fgColor="FDCEAE" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
-            <WordsStyle name="DELETED" styleID="5" fgColor="CFBFAF" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
-            <WordsStyle name="ADDED" styleID="6" fgColor="E3CEAB" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="HEADER" styleID="3" fgColor="569CD6" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="POSITION" styleID="4" fgColor="569CD6" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="DELETED" styleID="5" fgColor="F14C4C" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="ADDED" styleID="6" fgColor="81B88B" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
         </LexerType>
         <LexerType name="erlang" desc="Erlang" ext="">
             <WordsStyle name="DEFAULT STYLE" styleID="0" fgColor="D4D4D4" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
@@ -873,8 +873,8 @@ License:             GPL2
             <WordsStyle name="TAG" styleID="1" fgColor="E3CEAB" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" keywordClass="instre1" />
             <WordsStyle name="TAG END" styleID="11" fgColor="E3CEAB" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="TAG UNKNOWN" styleID="2" fgColor="EDD6ED" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
-            <WordsStyle name="ATTRIBUTE" styleID="3" fgColor="DFDFDF" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
-            <WordsStyle name="ATTRIBUTE UNKNOWN" styleID="4" fgColor="DFDFDF" bgColor="1E1E1E" fontName="" fontStyle="3" fontSize="" />
+            <WordsStyle name="ATTRIBUTE" styleID="3" fgColor="9CDCFE" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="ATTRIBUTE UNKNOWN" styleID="4" fgColor="9CDCFE" bgColor="1E1E1E" fontName="" fontStyle="3" fontSize="" />
             <WordsStyle name="SGML DEFAULT" styleID="21" fgColor="E3CEAB" bgColor="272727" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="SGML COMMAND" styleID="22" fgColor="E3CEAB" bgColor="272727" fontName="" fontStyle="1" fontSize="" keywordClass="instre2" />
             <WordsStyle name="SGML 1ST PARAM" styleID="23" fgColor="DFDFDF" bgColor="272727" fontName="" fontStyle="0" fontSize="" />
@@ -1015,9 +1015,9 @@ License:             GPL2
         <LexerType name="json" desc="JSON" ext="">
             <WordsStyle name="DEFAULT" styleID="0" fgColor="D4D4D4" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="NUMBER" styleID="1" fgColor="B5CEA8" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
-            <WordsStyle name="STRING" styleID="2" fgColor="D4D4D4" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="STRING" styleID="2" fgColor="CE9178" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="STRING EOL" styleID="3" fgColor="808080" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
-            <WordsStyle name="PROPERTY NAME" styleID="4" fgColor="4EC9B0" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="PROPERTY NAME" styleID="4" fgColor="9CDCFE" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="ESCAPE SEQUENCE" styleID="5" fgColor="D4D4D4" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
             <WordsStyle name="LINE COMMENT" styleID="6" fgColor="6A9955" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="BLOCK COMMENT" styleID="7" fgColor="6A9955" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
@@ -1918,11 +1918,11 @@ License:             GPL2
             <WordsStyle name="NUMBER" styleID="5" fgColor="B5CEA8" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="DOUBLE STRING" styleID="6" fgColor="CE9178" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="SINGLE STRING" styleID="7" fgColor="CE9178" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
-            <WordsStyle name="TAG" styleID="1" fgColor="E3CEAB" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
-            <WordsStyle name="TAG END" styleID="11" fgColor="E3CEAB" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
-            <WordsStyle name="TAG UNKNOWN" styleID="2" fgColor="EDD6ED" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
-            <WordsStyle name="ATTRIBUTE" styleID="3" fgColor="BEC89E" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
-            <WordsStyle name="ATTRIBUTE UNKNOWN" styleID="4" fgColor="DFDFDF" bgColor="1E1E1E" fontName="" fontStyle="2" fontSize="" />
+            <WordsStyle name="TAG" styleID="1" fgColor="569CD6" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="TAG END" styleID="11" fgColor="569CD6" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="TAG UNKNOWN" styleID="2" fgColor="569CD6" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize="" />
+            <WordsStyle name="ATTRIBUTE" styleID="3" fgColor="9CDCFE" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize="" />
+            <WordsStyle name="ATTRIBUTE UNKNOWN" styleID="4" fgColor="9CDCFE" bgColor="1E1E1E" fontName="" fontStyle="2" fontSize="" />
             <WordsStyle name="SGML DEFAULT" styleID="21" fgColor="E3CEAB" bgColor="272727" fontName="" fontStyle="0" fontSize="" />
             <WordsStyle name="SGML COMMAND" styleID="22" fgColor="E3CEAB" bgColor="272727" fontName="" fontStyle="1" fontSize="" keywordClass="instre1" />
             <WordsStyle name="SGML 1ST PARAM" styleID="23" fgColor="DFDFDF" bgColor="272727" fontName="" fontStyle="0" fontSize="" />
@@ -1963,12 +1963,12 @@ License:             GPL2
         <!-- Attention : Don't modify the name of styleID="0" -->
         <WidgetStyle name="Default Style" styleID="32" fgColor="D4D4D4" bgColor="1E1E1E" fontName="Consolas" fontStyle="0" fontSize="10"></WidgetStyle>
         <WidgetStyle name="Indent guideline style" styleID="37" fgColor="404040" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize=""></WidgetStyle>
-        <WidgetStyle name="Brace highlight style" styleID="34" fgColor="FFFFFF" bgColor="1E1E1E" fontName="" fontStyle="1" fontSize=""></WidgetStyle>
+        <WidgetStyle name="Brace highlight style" styleID="34" fgColor="FFFFFF" bgColor="515C6A" fontName="" fontStyle="1" fontSize=""></WidgetStyle>
         <WidgetStyle name="Bad brace colour" styleID="35" fgColor="FF6188" bgColor="1E1E1E" fontName="" fontStyle="0" fontSize=""></WidgetStyle>
         <WidgetStyle name="Current line background colour" styleID="0" bgColor="2A2A2A"></WidgetStyle>
         <!-- In below rule 'fgColor' attribute for 'Selected text colour' can be unlocked with a enableSelectFgColor.xml file -->
         <WidgetStyle name="Selected text colour" styleID="0" bgColor="264F78" fgColor="000000"></WidgetStyle>
-        <WidgetStyle name="Multi-selected text color" styleID="0" bgColor="C0C0C0"></WidgetStyle>
+        <WidgetStyle name="Multi-selected text color" styleID="0" bgColor="264F78"></WidgetStyle>
         <WidgetStyle name="Caret colour" styleID="2069" fgColor="AEAFAD"></WidgetStyle>
         <WidgetStyle name="Multi-edit carets color" styleID="0" fgColor="808040"></WidgetStyle>
         <WidgetStyle name="Edge colour" styleID="0" fgColor="404040"></WidgetStyle>
@@ -1983,7 +1983,7 @@ License:             GPL2
         <WidgetStyle name="Fold active" styleID="0" fgColor="6A9955"></WidgetStyle>
         <WidgetStyle name="Fold margin" styleID="0" fgColor="181818" bgColor="2A2A2A"></WidgetStyle>
         <WidgetStyle name="White space symbol" styleID="0" fgColor="3B3B3B"></WidgetStyle>
-        <WidgetStyle name="Smart Highlighting" styleID="29" bgColor="358A35"></WidgetStyle>
+        <WidgetStyle name="Smart Highlighting" styleID="29" bgColor="4CAF50"></WidgetStyle>
         <WidgetStyle name="Find Mark Style" styleID="31" bgColor="FF0080"></WidgetStyle>
         <WidgetStyle name="Find status: Not found" styleID="0" fgColor="FF0000"></WidgetStyle>
         <WidgetStyle name="Find status: Message" styleID="0" fgColor="0000FF"></WidgetStyle>
@@ -1993,7 +1993,7 @@ License:             GPL2
         <WidgetStyle name="Mark Style 3" styleID="23" bgColor="F18C96"></WidgetStyle>
         <WidgetStyle name="Mark Style 4" styleID="22" bgColor="408040"></WidgetStyle>
         <WidgetStyle name="Mark Style 5" styleID="21" bgColor="968CF1"></WidgetStyle>
-        <WidgetStyle name="Incremental highlight all" styleID="28" bgColor="C3BF9F"></WidgetStyle>
+        <WidgetStyle name="Incremental highlight all" styleID="28" bgColor="EA5C00"></WidgetStyle>
         <WidgetStyle name="Tags match highlighting" styleID="27" bgColor="C6C600"></WidgetStyle>
         <WidgetStyle name="Tags attribute" styleID="26" bgColor="78926F"></WidgetStyle>
         <WidgetStyle name="Active tab focused indicator" styleID="0" fgColor="80D4B2"></WidgetStyle>

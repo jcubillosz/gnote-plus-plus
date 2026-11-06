@@ -60,6 +60,14 @@ struct PreferencesView: View {
                     Text(L("Ancho de tab: \(preferences.tabWidth)"))
                 }
             }
+            Section(L("Línea de margen")) {
+                Stepper(value: Binding(
+                    get: { preferences.edgeColumn },
+                    set: { preferences.edgeColumn = $0; preferences.applyEditingOptions(to: tabs.editor) }
+                ), in: 40...200) {
+                    Text(L("Columna: \(preferences.edgeColumn)"))
+                }
+            }
         }
         .padding(20)
         .frame(width: 360)

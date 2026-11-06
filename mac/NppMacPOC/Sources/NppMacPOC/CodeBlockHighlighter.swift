@@ -23,6 +23,10 @@ private let codeLanguageAliases: [String: String] = [
     "ps1": "powershell", "powershell": "powershell",
     "html": "html", "xhtml": "html",
     "jsonc": "json", "golang": "go",
+    "scss": "css", "sass": "css", "less": "css",
+    "make": "makefile",
+    "env": "props", "dotenv": "props", "properties": "props",
+    "patch": "diff",
 ]
 
 /// Perfil de lenguaje para el tag de un bloque ```tag, o nil si no se reconoce (o si

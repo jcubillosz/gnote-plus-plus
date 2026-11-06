@@ -30,9 +30,21 @@ struct TabBarView: View {
                                 isActive: index == tabs.activeIndex,
                                 isDirty: document.isDirty,
                                 onSelect: { tabs.activate(at: index) },
-                                onClose: { tabs.close(at: index) }
+                                onClose: { tabs.close(at: index) },
+                                onMiddleClick: { withIndex(of: document) { tabs.close(at: $0) } }
                             )
                             .id(document.id)
+                            .contextMenu { tabContextMenu(for: document) }
+                            .onDrag {
+                                // Tipo privado solo dentro del proceso: con texto plano el
+                                // editor aceptaba el drop e insertaba el UUID.
+                                let provider = NSItemProvider()
+                                provider.registerDataRepresentation(forTypeIdentifier: tabDragType, visibility: .ownProcess) {
+                                    $0(Data(document.id.uuidString.utf8), nil); return nil
+                                }
+                                return provider
+                            }
+                            .onDrop(of: [tabDragType], delegate: TabDropDelegate(target: document, tabs: tabs))
                         }
                     }
                     .background { WidthReader { contentWidth = $0 } }
@@ -62,6 +74,54 @@ struct TabBarView: View {
     }
 
     static let height: CGFloat = 32
+
+    /// El índice se resuelve al ejecutar la acción: el menú puede quedar abierto mientras
+    /// cambian las pestañas.
+    @ViewBuilder
+    private func tabContextMenu(for document: Document) -> some View {
+        let url = document.url
+        Button(L("Cerrar")) { withIndex(of: document) { tabs.close(at: $0) } }
+        Button(L("Cerrar las demás")) { withIndex(of: document) { tabs.closeOthers(keeping: $0) } }
+        Button(L("Cerrar las de la derecha")) { withIndex(of: document) { tabs.closeToTheRight(of: $0) } }
+            .disabled(tabs.documents.last === document)
+        Button(L("Cerrar todas")) { tabs.closeAll() }
+        Divider()
+        Button(L("Guardar")) {
+            withIndex(of: document) {
+                tabs.activate(at: $0)
+                tabs.saveActive()
+            }
+        }
+        Divider()
+        Button(L("Copiar ruta completa")) { copyToPasteboard(url?.path) }
+            .disabled(url == nil)
+        Button(L("Copiar nombre del archivo")) { copyToPasteboard(document.displayName) }
+        Button(L("Copiar ruta de la carpeta")) { copyToPasteboard(url?.deletingLastPathComponent().path) }
+            .disabled(url == nil)
+        Divider()
+        Button(L("Mostrar en Finder")) {
+            if let url { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        }
+        .disabled(url == nil)
+        Button(L("Abrir carpeta en Terminal")) {
+            guard let folder = url?.deletingLastPathComponent(),
+                  let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
+            else { return }
+            NSWorkspace.shared.open([folder], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
+        }
+        .disabled(url == nil)
+    }
+
+    private func withIndex(of document: Document, _ action: (Int) -> Void) {
+        guard let index = tabs.documents.firstIndex(where: { $0 === document }) else { return }
+        action(index)
+    }
+
+    private func copyToPasteboard(_ string: String?) {
+        guard let string else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(string, forType: .string)
+    }
 
     private func arrowButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -168,6 +228,7 @@ private struct TabButton: View {
     let isDirty: Bool
     let onSelect: () -> Void
     let onClose: () -> Void
+    let onMiddleClick: () -> Void
 
     @State private var isCloseHovering: Bool = false
 
@@ -204,5 +265,74 @@ private struct TabButton: View {
         .contentShape(Rectangle())
         .help(fullPath)
         .onTapGesture(perform: onSelect)
+        .background { MiddleClickCatcher(action: onMiddleClick) }
+    }
+}
+
+private let tabDragType = "cl.jcubillos.gnotepp.tab"
+
+/// Reordena al soltar sobre otra pestaña. El origen se resuelve por el UUID del payload y los
+/// índices por identidad al soltar; soltar sobre sí misma o fuera no hace nada. Se usa el
+/// identificador como String (sin UTType exportado) para no depender del Info.plist.
+private struct TabDropDelegate: DropDelegate {
+    let target: Document
+    let tabs: TabsViewModel
+
+    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [tabDragType]) }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [tabDragType]).first else { return false }
+        provider.loadDataRepresentation(forTypeIdentifier: tabDragType) { data, _ in
+            guard let data, let text = String(data: data, encoding: .utf8), let id = UUID(uuidString: text) else { return }
+            DispatchQueue.main.async {
+                guard let from = tabs.documents.firstIndex(where: { $0.id == id }),
+                      let to = tabs.documents.firstIndex(where: { $0 === target }), from != to else { return }
+                tabs.moveDocument(from: from, to: to)
+            }
+        }
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+}
+
+/// Clic del medio para cerrar. macOS 13 no tiene gesto de botón central en SwiftUI; un monitor
+/// local de otherMouseDown acotado a los límites de esta vista (que va de fondo) no interfiere
+/// con clic, arrastre ni tooltips de la pestaña.
+private struct MiddleClickCatcher: NSViewRepresentable {
+    let action: () -> Void
+
+    func makeNSView(context: Context) -> CatcherView {
+        let view = CatcherView()
+        view.action = action
+        return view
+    }
+
+    func updateNSView(_ view: CatcherView, context: Context) { view.action = action }
+
+    final class CatcherView: NSView {
+        var action: (() -> Void)?
+        private var monitor: Any?
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            removeMonitor()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .otherMouseDown) { [weak self] event in
+                guard let self, event.window === self.window, event.buttonNumber == 2,
+                      self.visibleRect.contains(self.convert(event.locationInWindow, from: nil)) else { return event }
+                self.action?()
+                return nil
+            }
+        }
+
+        private func removeMonitor() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+
+        deinit { removeMonitor() }
     }
 }

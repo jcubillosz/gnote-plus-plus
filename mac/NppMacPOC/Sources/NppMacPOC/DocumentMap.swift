@@ -29,11 +29,49 @@ final class DocumentMapView: NSView {
         super.init(frame: map.frame)
         map.autoresizingMask = [.width, .height]
         addSubview(map)
+        autoresizingMask = []
         overlay.frame = bounds
         overlay.autoresizingMask = [.width, .height]
         overlay.owner = self
         addSubview(overlay)
         configure()
+        NotificationCenter.default.addObserver(
+            forName: NSScroller.preferredScrollerStyleDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.refresh() }
+    }
+
+    /// Margen derecho original de Scintilla, leído una sola vez antes de reservar el de la minimapa.
+    private static var defaultMarginRight: Int?
+
+    /// Reserva (o libera) a la derecha del texto el ancho de la minimapa, que se dibuja encima
+    /// del editor. En Scintilla Cocoa las unidades son puntos, igual que el frame de la vista.
+    static func applyMargin(to editor: ScintillaView, visible: Bool) {
+        func send(_ message: UInt32, _ lParam: Int = 0) -> Int {
+            Int(ScintillaView.directCall(editor, message: message, wParam: 0, lParam: sptr_t(lParam)))
+        }
+        if defaultMarginRight == nil { defaultMarginRight = send(SCI_GETMARGINRIGHT) }
+        let target = visible ? Int(width) : (defaultMarginRight ?? 1)
+        if send(SCI_GETMARGINRIGHT) != target { _ = send(SCI_SETMARGINRIGHT, target) }
+    }
+
+    /// Ancho/alto reales de los scrollers del editor (0 si son overlay u ocultos): la minimapa
+    /// se acomoda al lado de ellos en vez de taparlos.
+    private func scrollerInsets() -> (right: CGFloat, bottom: CGFloat) {
+        guard let scrollView = editor?.scrollView else { return (0, 0) }
+        func size(_ scroller: NSScroller?, _ horizontal: Bool) -> CGFloat {
+            guard let scroller, !scroller.isHidden, scroller.scrollerStyle == .legacy else { return 0 }
+            return horizontal ? scroller.frame.height : scroller.frame.width
+        }
+        return (size(scrollView.hasVerticalScroller ? scrollView.verticalScroller : nil, false),
+                size(scrollView.hasHorizontalScroller ? scrollView.horizontalScroller : nil, true))
+    }
+
+    private func positionInContainer() {
+        guard let container = superview as? DocumentMapContainer else { return }
+        let insets = scrollerInsets()
+        let frame = NSRect(x: container.bounds.width - Self.width - insets.right, y: 0,
+                           width: Self.width, height: max(0, container.bounds.height - insets.bottom))
+        if self.frame != frame { self.frame = frame }
     }
 
     @available(*, unavailable)
@@ -53,6 +91,8 @@ final class DocumentMapView: NSView {
         _ = call(map, SCI_SETCARETLINEVISIBLE, 0)
         _ = call(map, SCI_SETWRAPMODE, SC_WRAP_NONE)
         _ = call(map, SCI_SETZOOM, -10)
+        // El indicador del autocierre es del documento compartido: sin esto se dibujaría subrayado.
+        _ = call(map, SCI_INDICSETSTYLE, INDICATOR_AUTO_CLOSE, INDIC_HIDDEN)
     }
 
     /// Definiciones de estilo de la minimapa: las mismas que applyLanguage/applyGlobalStyle
@@ -80,6 +120,7 @@ final class DocumentMapView: NSView {
     /// Barata: se llama en cada scroll, edición y redimensionado del editor.
     func refresh() {
         guard let editor, window != nil else { return }
+        positionInContainer()
         let document = call(editor, SCI_GETDOCPOINTER)
         if document != attachedDocument {
             _ = call(map, SCI_SETDOCPOINTER, 0, document)
@@ -181,6 +222,19 @@ private final class DocumentMapOverlay: NSView {
     }
 }
 
+/// Contenedor transparente a tamaño del editor: deja pasar el mouse salvo sobre la minimapa.
+final class DocumentMapContainer: NSView {
+    override var isFlipped: Bool { true }
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
+    }
+    override func layout() {
+        super.layout()
+        (subviews.first as? DocumentMapView)?.refresh()
+    }
+}
+
 /// El DocumentMapView es único y vive en TabsViewModel; esta vista lo adopta en un
 /// contenedor nuevo en cada aparición (mismo motivo que MarkdownPreviewView: devolver la
 /// instancia compartida directo desde makeNSView la deja fuera de la jerarquía al volver).
@@ -188,14 +242,13 @@ struct DocumentMapRepresentable: NSViewRepresentable {
     let map: DocumentMapView
 
     func makeNSView(context: Context) -> NSView {
-        NSView()
+        DocumentMapContainer()
     }
 
     func updateNSView(_ container: NSView, context: Context) {
         if map.superview !== container {
             map.removeFromSuperview()
-            map.frame = container.bounds
-            map.autoresizingMask = [.width, .height]
+            map.autoresizingMask = []
             container.addSubview(map)
         }
         map.refresh()

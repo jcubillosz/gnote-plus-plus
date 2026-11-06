@@ -329,3 +329,138 @@
 
 /* Mermaid */
 "El diagrama es demasiado grande." = "El diagrama es demasiado grande.";
+"%@ tiene cambios sin guardar." = "%@ tiene cambios sin guardar.";
+"Si no los guardas, se pierden." = "Si no los guardas, se pierden.";
+"No guardar" = "No guardar";
+"%@ ya está abierto en otra pestaña." = "%@ ya está abierto en otra pestaña.";
+"Ciérralo antes de guardar con ese nombre." = "Ciérralo antes de guardar con ese nombre.";
+
+/* Lote 5: cerrar/guardar/salir */
+"Guardar todo" = "Guardar todo";
+"Cerrar todas" = "Cerrar todas";
+"Descartar cambios" = "Descartar cambios";
+"Hay %lld documentos con cambios sin guardar." = "Hay %lld documentos con cambios sin guardar.";
+"Si sales sin guardar, los cambios se pierden." = "Si sales sin guardar, los cambios se pierden.";
+"Cerrar" = "Cerrar";
+"Cerrar las demás" = "Cerrar las demás";
+"Cerrar las de la derecha" = "Cerrar las de la derecha";
+"Copiar ruta completa" = "Copiar ruta completa";
+"Copiar nombre del archivo" = "Copiar nombre del archivo";
+"Copiar ruta de la carpeta" = "Copiar ruta de la carpeta";
+"Mostrar en Finder" = "Mostrar en Finder";
+"Abrir carpeta en Terminal" = "Abrir carpeta en Terminal";
+
+/* Lote 5: buscar/reemplazar */
+"Reemplazar solo dentro de la selección" = "Reemplazar solo dentro de la selección";
+
+/* Lote 5: vista y edición */
+"Mostrar fin de línea" = "Mostrar fin de línea";
+"Guías de indentación" = "Guías de indentación";
+"Línea de margen" = "Línea de margen";
+"Columna: %lld" = "Columna: %lld";
+"Espacios en blanco" = "Espacios en blanco";
+"Tabs a espacios" = "Tabs a espacios";
+"Espacios iniciales a tabs" = "Espacios iniciales a tabs";
+"Insertar fecha y hora" = "Insertar fecha y hora";
+"Corta" = "Corta";
+"Larga" = "Larga";
+"ISO 8601" = "ISO 8601";
+
+/* Lote 6 */
+"Resaltar línea actual" = "Resaltar línea actual";
+"Ir a la llave pareja" = "Ir a la llave pareja";
+"Seleccionar hasta la llave pareja" = "Seleccionar hasta la llave pareja";
+"Invertir orden" = "Invertir orden";
+"Orden aleatorio" = "Orden aleatorio";
+"Ordenar sin distinguir mayúsculas" = "Ordenar sin distinguir mayúsculas";
+"Ordenar numérico" = "Ordenar numérico";
+"Ordenar por largo" = "Ordenar por largo";
+"Insertar línea en blanco arriba" = "Insertar línea en blanco arriba";
+"Insertar línea en blanco abajo" = "Insertar línea en blanco abajo";
+"Recortar espacios finales" = "Recortar espacios finales";
+"Recortar espacios iniciales" = "Recortar espacios iniciales";
+"Recortar ambos" = "Recortar ambos";
+"Fin de línea a espacio" = "Fin de línea a espacio";
+"Tipo oración" = "Tipo oración";
+"Invertir mayúsculas/minúsculas" = "Invertir mayúsculas/minúsculas";
+"Herramientas" = "Herramientas";
+"MD5" = "MD5";
+"SHA-1" = "SHA-1";
+"SHA-256" = "SHA-256";
+"Codificar Base64" = "Codificar Base64";
+"Decodificar Base64" = "Decodificar Base64";
+"Resumen…" = "Resumen…";
+"Resumen" = "Resumen";
+"Documento" = "Documento";
+"Selección" = "Selección";
+"Base64" = "Base64";
+"El texto seleccionado no es Base64 válido en UTF-8." = "El texto seleccionado no es Base64 válido en UTF-8.";
+"Líneas: %lld" = "Líneas: %lld";
+"Palabras: %lld" = "Palabras: %lld";
+"Caracteres: %lld" = "Caracteres: %lld";
+"Caracteres sin espacios: %lld" = "Caracteres sin espacios: %lld";
+"Bytes (UTF-8): %lld" = "Bytes (UTF-8): %lld";
+
+/* Lote 8 */
+"Indentación automática" = "Indentación automática";
+"Reindentar" = "Reindentar";
+"Formatear JSON" = "Formatear JSON";
+"Minificar JSON" = "Minificar JSON";
+"Formatear XML" = "Formatear XML";
+"Formatear" = "Formatear";
+"JSON no válido: coma final." = "JSON no válido: coma final.";
+"JSON no válido" = "JSON no válido";
+"El XML tiene texto mezclado con elementos; formatearlo cambiaría el texto." = "El XML tiene texto mezclado con elementos; formatearlo cambiaría el texto.";
+"Título 4" = "Título 4";
+"Título 5" = "Título 5";
+"Título 6" = "Título 6";
+"Resaltado" = "Resaltado";
+"Tecla" = "Tecla";
+"Subíndice" = "Subíndice";
+"Superíndice" = "Superíndice";
+"Línea horizontal" = "Línea horizontal";
+"Sección plegable" = "Sección plegable";
+"Nota al pie" = "Nota al pie";
+"Enlace" = "Enlace";
+"Insertar enlace" = "Insertar enlace";
+"Markdown" = "Markdown";
+
+/* Lote 9 */
+"Columna %lld" = "Columna %lld";
+"Barra Markdown grande" = "Barra Markdown grande";
+"Barra grande" = "Barra grande";
+"Barra compacta" = "Barra compacta";
+"Texto normal" = "Texto normal";
+"Más formato" = "Más formato";
+"Lista" = "Lista";
+"Viñetas" = "Viñetas";
+"Numerada" = "Numerada";
+"Tareas" = "Tareas";
+"Diagrama" = "Diagrama";
+"%lld columnas × %lld filas" = "%lld columnas × %lld filas";
+"Formatear tabla" = "Formatear tabla";
+"Título" = "Título";
+"Cita" = "Cita";
+"Código en línea" = "Código en línea";
+"Tachado" = "Tachado";
+"Negrita" = "Negrita";
+"Cursiva" = "Cursiva";
+"Título %lld" = "Título %lld";
+"Título 1" = "Título 1";
+"Título 2" = "Título 2";
+"Título 3" = "Título 3";
+"Uno" = "Uno";
+"Dos" = "Dos";
+"Tres" = "Tres";
+
+/* Textos que faltaban (1.4) */
+"Abrir" = "Abrir";
+"Apoyar el proyecto" = "Apoyar el proyecto";
+"GNote++" = "GNote++";
+"Insertar bloque de código" = "Insertar bloque de código";
+"Insertar imagen" = "Insertar imagen";
+"Insertar título" = "Insertar título";
+"Lista con viñeta" = "Lista con viñeta";
+"Lista numerada" = "Lista numerada";
+"Mostrar todas las fuentes" = "Mostrar todas las fuentes";
+"Sincronizar scroll" = "Sincronizar scroll";

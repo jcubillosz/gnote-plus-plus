@@ -4,7 +4,7 @@ import AppKit
 /// Identificador de la escena `Window`, usado por `openWindow(id:)` desde el menú.
 let aboutWindowID = "about"
 
-let donationURL = URL(string: "https://www.paypal.com/donate/?hosted_button_id=Q2E7M3ZS53NF8")!
+let donationURL = URL(string: "https://www.paypal.com/ncp/payment/ARSKH5DQC8WAL")!
 /// Requisito de la GPL-3: quien recibe el binario tiene que poder llegar al código
 /// fuente. Por eso el link vive en la ventana About y no solo en el README.
 let repositoryURL = URL(string: "https://github.com/jcubillosz/gnote-plus-plus")!

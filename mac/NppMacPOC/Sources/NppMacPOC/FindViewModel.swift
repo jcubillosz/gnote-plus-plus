@@ -10,6 +10,7 @@ final class FindViewModel: ObservableObject {
     @Published var useRegex: Bool = false
     @Published var matchCase: Bool = false
     @Published var wholeWord: Bool = false
+    @Published var inSelection: Bool = false
     @Published var matchCount: Int = 0
     @Published var currentMatchIndex: Int = 0
 

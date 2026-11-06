@@ -65,6 +65,10 @@ struct FindBarView: View {
                         .disabled(isLocked)
                     Button(L("Reemplazar todos")) { replaceAll(editor: editor, find: find) }
                         .disabled(isLocked)
+                    Toggle(isOn: $find.inSelection) { Image(systemName: "text.cursor") }
+                        .toggleStyle(.button)
+                        .help(L("Reemplazar solo dentro de la selección"))
+                        .accessibilityLabel(L("Reemplazar solo dentro de la selección"))
                 }
             }
         }
@@ -90,5 +94,6 @@ struct FindBarView: View {
         pendingHighlight?.cancel()
         clearHighlights(editor: editor)
         find.isVisible = false
+        find.inSelection = false
     }
 }

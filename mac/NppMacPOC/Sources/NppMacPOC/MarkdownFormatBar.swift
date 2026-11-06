@@ -4,22 +4,44 @@ import SwiftUI
 /// de la ventana, que ya no daba abasto). Solo aparece con un documento Markdown activo.
 struct MarkdownFormatBar: View {
     @ObservedObject var tabs: TabsViewModel
+    @ObservedObject var preferences: EditorPreferences
 
     var body: some View {
+        if preferences.markdownLargeToolbar {
+            MarkdownLargeFormatBar(tabs: tabs, preferences: preferences)
+        } else {
+            compactBar
+        }
+    }
+
+    private var compactBar: some View {
         HStack(spacing: 4) {
             Menu {
-                Button(L("Título 1")) { insertMarkdownHeading(level: 1, editor: tabs.editor) }
-                Button(L("Título 2")) { insertMarkdownHeading(level: 2, editor: tabs.editor) }
-                Button(L("Título 3")) { insertMarkdownHeading(level: 3, editor: tabs.editor) }
+                Button(L("Título 1")) { setMarkdownHeading(level: 1, editor: tabs.editor) }
+                Button(L("Título 2")) { setMarkdownHeading(level: 2, editor: tabs.editor) }
+                Button(L("Título 3")) { setMarkdownHeading(level: 3, editor: tabs.editor) }
+                Button(L("Título 4")) { setMarkdownHeading(level: 4, editor: tabs.editor) }
+                Button(L("Título 5")) { setMarkdownHeading(level: 5, editor: tabs.editor) }
+                Button(L("Título 6")) { setMarkdownHeading(level: 6, editor: tabs.editor) }
                 Divider()
                 Button(L("Negrita")) { insertMarkdownBold(editor: tabs.editor) }
                 Button(L("Cursiva")) { insertMarkdownItalic(editor: tabs.editor) }
                 Button(L("Tachado")) { insertMarkdownStrikethrough(editor: tabs.editor) }
                 Button(L("Código en línea")) { insertMarkdownInlineCode(editor: tabs.editor) }
+                Button(L("Resaltado")) { insertMarkdownTag("mark", editor: tabs.editor) }
+                Button(L("Tecla")) { insertMarkdownTag("kbd", editor: tabs.editor) }
+                Button(L("Subíndice")) { insertMarkdownTag("sub", editor: tabs.editor) }
+                Button(L("Superíndice")) { insertMarkdownTag("sup", editor: tabs.editor) }
             } label: {
                 Label(L("Formato"), systemImage: "textformat.size")
             }
             .help(L("Insertar título"))
+            .disabled(tabs.activeDocument?.isLocked == true)
+
+            Button {
+                insertMarkdownLink(editor: tabs.editor)
+            } label: { Label(L("Enlace"), systemImage: "link") }
+            .help(L("Insertar enlace"))
             .disabled(tabs.activeDocument?.isLocked == true)
 
             Menu {
@@ -36,8 +58,10 @@ struct MarkdownFormatBar: View {
 
             Menu {
                 Button(L("Cita")) { insertMarkdownBlockquote(editor: tabs.editor) }
-                Button(L("Código en línea")) { insertMarkdownInlineCode(editor: tabs.editor) }
                 Button(L("Bloque de código")) { insertMarkdownCodeBlock(editor: tabs.editor) }
+                Button(L("Línea horizontal")) { insertMarkdownHorizontalRule(editor: tabs.editor) }
+                Button(L("Sección plegable")) { insertMarkdownDetails(editor: tabs.editor) }
+                Button(L("Nota al pie")) { insertMarkdownFootnote(editor: tabs.editor) }
                 Divider()
                 Button(L("Nota")) { insertMarkdownAlert("NOTE", editor: tabs.editor) }
                 Button(L("Consejo")) { insertMarkdownAlert("TIP", editor: tabs.editor) }
@@ -77,17 +101,14 @@ struct MarkdownFormatBar: View {
             .disabled(tabs.activeDocument?.isLocked == true)
 
             Menu {
-                ForEach(MermaidTemplates.all) { template in
-                    Button(template.title) { MermaidTemplates.insert(template, editor: tabs.editor) }
-                        .disabled(tabs.activeDocument?.isLocked == true)
-                }
-                Divider()
-                Button(L("Guardar diagrama como PNG…")) { MermaidExport.save(.png, editor: tabs.editor, document: tabs.activeDocument) }
-                Button(L("Guardar diagrama como SVG…")) { MermaidExport.save(.svg, editor: tabs.editor, document: tabs.activeDocument) }
-                Button(L("Copiar diagrama como imagen")) { MermaidExport.copyImage(editor: tabs.editor) }
+                DiagramActions(tabs: tabs)
             } label: { Label(L("Diagramas"), systemImage: "point.3.connected.trianglepath.dotted") }
             .help(L("Insertar o exportar diagrama Mermaid"))
-                        Spacer(minLength: 0)
+            Spacer(minLength: 0)
+            Button {
+                preferences.markdownLargeToolbar = true
+            } label: { Image(systemName: "rectangle.expand.vertical") }
+            .help(L("Barra grande"))
         }
         .menuStyle(.borderlessButton)
         .buttonStyle(.borderless)
@@ -96,14 +117,31 @@ struct MarkdownFormatBar: View {
         .font(.system(size: 12))
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 10)
-        .frame(height: MarkdownFormatBar.height)
+        .frame(height: MarkdownFormatBar.height(large: false))
         // Closure, no `.background(.bar)`: ver el comentario de TabBarView sobre safe area.
         .background { Rectangle().fill(.bar) }
     }
 
-    static let height: CGFloat = 30
+    static func height(large: Bool) -> CGFloat { large ? 54 : 30 }
 
     private func alignTableColumn(_ alignment: MarkdownEditing.Alignment) {
         if !MarkdownEditing.formatTable(editor: tabs.editor, align: alignment) { NSSound.beep() }
+    }
+}
+
+/// Contenido del menú de diagramas, compartido por la barra compacta (Menu) y la grande (popover).
+struct DiagramActions: View {
+    @ObservedObject var tabs: TabsViewModel
+    var onPick: () -> Void = {}
+
+    var body: some View {
+        ForEach(MermaidTemplates.all) { template in
+            Button(template.title) { MermaidTemplates.insert(template, editor: tabs.editor); onPick() }
+                .disabled(tabs.activeDocument?.isLocked == true)
+        }
+        Divider()
+        Button(L("Guardar diagrama como PNG…")) { MermaidExport.save(.png, editor: tabs.editor, document: tabs.activeDocument); onPick() }
+        Button(L("Guardar diagrama como SVG…")) { MermaidExport.save(.svg, editor: tabs.editor, document: tabs.activeDocument); onPick() }
+        Button(L("Copiar diagrama como imagen")) { MermaidExport.copyImage(editor: tabs.editor); onPick() }
     }
 }

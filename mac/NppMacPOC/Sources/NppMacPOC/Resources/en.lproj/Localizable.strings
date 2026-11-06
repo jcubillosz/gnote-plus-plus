@@ -329,3 +329,138 @@
 
 /* Mermaid */
 "El diagrama es demasiado grande." = "The diagram is too large.";
+"%@ tiene cambios sin guardar." = "%@ has unsaved changes.";
+"Si no los guardas, se pierden." = "If you don't save them, they are lost.";
+"No guardar" = "Don't Save";
+"%@ ya está abierto en otra pestaña." = "%@ is already open in another tab.";
+"Ciérralo antes de guardar con ese nombre." = "Close it before saving with that name.";
+
+/* Lote 5: cerrar/guardar/salir */
+"Guardar todo" = "Save All";
+"Cerrar todas" = "Close All";
+"Descartar cambios" = "Discard Changes";
+"Hay %lld documentos con cambios sin guardar." = "%lld documents have unsaved changes.";
+"Si sales sin guardar, los cambios se pierden." = "If you quit without saving, your changes will be lost.";
+"Cerrar" = "Close";
+"Cerrar las demás" = "Close Others";
+"Cerrar las de la derecha" = "Close Tabs to the Right";
+"Copiar ruta completa" = "Copy Full Path";
+"Copiar nombre del archivo" = "Copy File Name";
+"Copiar ruta de la carpeta" = "Copy Folder Path";
+"Mostrar en Finder" = "Show in Finder";
+"Abrir carpeta en Terminal" = "Open Folder in Terminal";
+
+/* Lote 5: buscar/reemplazar */
+"Reemplazar solo dentro de la selección" = "Replace only within the selection";
+
+/* Lote 5: vista y edición */
+"Mostrar fin de línea" = "Show End of Line";
+"Guías de indentación" = "Indentation Guides";
+"Línea de margen" = "Edge Line";
+"Columna: %lld" = "Column: %lld";
+"Espacios en blanco" = "Blank Operations";
+"Tabs a espacios" = "Tabs to Spaces";
+"Espacios iniciales a tabs" = "Leading Spaces to Tabs";
+"Insertar fecha y hora" = "Insert Date and Time";
+"Corta" = "Short";
+"Larga" = "Long";
+"ISO 8601" = "ISO 8601";
+
+/* Lote 6 */
+"Resaltar línea actual" = "Highlight Current Line";
+"Ir a la llave pareja" = "Go to Matching Brace";
+"Seleccionar hasta la llave pareja" = "Select to Matching Brace";
+"Invertir orden" = "Reverse Order";
+"Orden aleatorio" = "Random Order";
+"Ordenar sin distinguir mayúsculas" = "Sort Case-Insensitive";
+"Ordenar numérico" = "Sort Numerically";
+"Ordenar por largo" = "Sort by Length";
+"Insertar línea en blanco arriba" = "Insert Blank Line Above";
+"Insertar línea en blanco abajo" = "Insert Blank Line Below";
+"Recortar espacios finales" = "Trim Trailing Spaces";
+"Recortar espacios iniciales" = "Trim Leading Spaces";
+"Recortar ambos" = "Trim Both";
+"Fin de línea a espacio" = "Line Endings to Space";
+"Tipo oración" = "Sentence case";
+"Invertir mayúsculas/minúsculas" = "Invert Case";
+"Herramientas" = "Tools";
+"MD5" = "MD5";
+"SHA-1" = "SHA-1";
+"SHA-256" = "SHA-256";
+"Codificar Base64" = "Encode Base64";
+"Decodificar Base64" = "Decode Base64";
+"Resumen…" = "Summary…";
+"Resumen" = "Summary";
+"Documento" = "Document";
+"Selección" = "Selection";
+"Base64" = "Base64";
+"El texto seleccionado no es Base64 válido en UTF-8." = "The selected text is not valid UTF-8 Base64.";
+"Líneas: %lld" = "Lines: %lld";
+"Palabras: %lld" = "Words: %lld";
+"Caracteres: %lld" = "Characters: %lld";
+"Caracteres sin espacios: %lld" = "Characters without spaces: %lld";
+"Bytes (UTF-8): %lld" = "Bytes (UTF-8): %lld";
+
+/* Lote 8 */
+"Indentación automática" = "Auto-indent";
+"Reindentar" = "Reindent";
+"Formatear JSON" = "Format JSON";
+"Minificar JSON" = "Minify JSON";
+"Formatear XML" = "Format XML";
+"Formatear" = "Format";
+"JSON no válido: coma final." = "Invalid JSON: trailing comma.";
+"JSON no válido" = "Invalid JSON";
+"El XML tiene texto mezclado con elementos; formatearlo cambiaría el texto." = "The XML mixes text with elements; formatting it would change the text.";
+"Título 4" = "Heading 4";
+"Título 5" = "Heading 5";
+"Título 6" = "Heading 6";
+"Resaltado" = "Highlight";
+"Tecla" = "Key";
+"Subíndice" = "Subscript";
+"Superíndice" = "Superscript";
+"Línea horizontal" = "Horizontal rule";
+"Sección plegable" = "Collapsible section";
+"Nota al pie" = "Footnote";
+"Enlace" = "Link";
+"Insertar enlace" = "Insert link";
+"Markdown" = "Markdown";
+
+/* Lote 9 */
+"Columna %lld" = "Column %lld";
+"Barra Markdown grande" = "Large Markdown toolbar";
+"Barra grande" = "Large toolbar";
+"Barra compacta" = "Compact toolbar";
+"Texto normal" = "Normal text";
+"Más formato" = "More formatting";
+"Lista" = "List";
+"Viñetas" = "Bullets";
+"Numerada" = "Numbered";
+"Tareas" = "Tasks";
+"Diagrama" = "Diagram";
+"%lld columnas × %lld filas" = "%lld columns × %lld rows";
+"Formatear tabla" = "Format table";
+"Título" = "Title";
+"Negrita" = "Bold";
+"Cursiva" = "Italic";
+"Cita" = "Quote";
+"Código en línea" = "Inline code";
+"Tachado" = "Strikethrough";
+"Título %lld" = "Heading %lld";
+"Título 1" = "Heading 1";
+"Título 2" = "Heading 2";
+"Título 3" = "Heading 3";
+"Uno" = "One";
+"Dos" = "Two";
+"Tres" = "Three";
+
+/* Textos que faltaban (1.4) */
+"Abrir" = "Open";
+"Apoyar el proyecto" = "Support the project";
+"GNote++" = "GNote++";
+"Insertar bloque de código" = "Insert code block";
+"Insertar imagen" = "Insert image";
+"Insertar título" = "Insert heading";
+"Lista con viñeta" = "Bulleted list";
+"Lista numerada" = "Numbered list";
+"Mostrar todas las fuentes" = "Show all fonts";
+"Sincronizar scroll" = "Sync scroll";

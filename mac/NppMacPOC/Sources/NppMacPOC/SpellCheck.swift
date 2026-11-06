@@ -206,23 +206,42 @@ enum SpellChecker {
             // Se excluyen bloques/spans de código y URLs de enlaces; el resto de Markdown
             // (texto, encabezados, énfasis, listas, citas) sí se revisa.
             return !markdownExcludedStyles.contains(style)
-        case "cpp":
-            // Cubre cpp, java, javascript, typescript, objc, cs, go, swift, actionscript —
-            // todos mapean a este lexer real vía lexerNameOverrides en Language.swift.
-            return cppCommentStringStyles.contains(style)
-        case "python":
-            return pythonCommentStringStyles.contains(style)
-        case "bash":
-            return bashCommentStringStyles.contains(style)
-        case "hypertext", "xml":
-            // "xml" comparte lexer/estilos SCE_H_* con "hypertext" (LexHTML.cxx implementa
-            // ambos, ver lmHTML/lmXML en lexilla/lexers/LexHTML.cxx). "hypertext" además cubre
-            // el JS/PHP embebido (SCE_HJ_*/SCE_HJA_*/SCE_HPHP_*).
-            return hypertextCommentStringStyles.contains(style)
+        case "cpp", "python", "bash", "hypertext", "xml":
+            // Tablas compartidas con Reindentar (cpp cubre java, js, ts, objc, cs, go, swift...
+            // vía lexerNameOverrides; "xml" comparte estilos SCE_H_* con "hypertext").
+            return isCommentOrStringStyle(style, lexerName: lexerName)
         default:
             // Cualquier otro lexer no está en el alcance de esta task (brief: "en otros
             // lexers no se revisa").
             return false
+        }
+    }
+
+    /// ¿El estilo es comentario o string en este lexer? Para lexers sin tabla: false.
+    static func isCommentOrStringStyle(_ style: Int, lexerName: String) -> Bool {
+        switch lexerName {
+        case "cpp": return cppCommentStringStyles.contains(style)
+        case "python": return pythonCommentStringStyles.contains(style)
+        case "bash": return bashCommentStringStyles.contains(style)
+        case "hypertext", "xml": return hypertextCommentStringStyles.contains(style)
+        // SCE_JSON_STRING=2, STRINGEOL=3, PROPERTYNAME=4, LINECOMMENT=6, BLOCKCOMMENT=7.
+        case "json": return [2, 3, 4, 6, 7].contains(style)
+        // SCE_CSS_COMMENT=9, DOUBLESTRING=13, SINGLESTRING=14.
+        case "css": return [9, 13, 14].contains(style)
+        // SCE_RUST_COMMENTBLOCK..COMMENTLINEDOC=1-4, STRING=13, STRINGR=14, CHARACTER=15,
+        // BYTESTRING=21, BYTESTRINGR=22, BYTECHARACTER=23, CSTRING=24, CSTRINGR=25 (18 LIFETIME no).
+        case "rust": return [1, 2, 3, 4, 13, 14, 15, 21, 22, 23, 24, 25].contains(style)
+        // SCE_POWERSHELL_COMMENT=1, STRING=2, CHARACTER=3, COMMENTSTREAM=13, HERE_STRING=14,
+        // HERE_CHARACTER=15, COMMENTDOCKEYWORD=16.
+        case "powershell": return [1, 2, 3, 13, 14, 15, 16].contains(style)
+        // SCE_PL_COMMENTLINE=2, POD=3, STRING=6, CHARACTER=7, REGEX=17, REGSUBST=18, LONGQUOTE=19,
+        // BACKTICKS=20, DATASECTION=21, HERE_DELIM..POD_VERB=22-31, STRING_VAR=43, XLAT=44,
+        // REGEX_VAR=54, REGSUBST_VAR=55, BACKTICKS_VAR=57, HERE_QQ_VAR=61, HERE_QX_VAR=62,
+        // STRING_QQ_VAR..QR_VAR=64-66.
+        case "perl":
+            return (2...3).contains(style) || (6...7).contains(style) || (17...31).contains(style)
+                || [43, 44, 54, 55, 57, 61, 62, 64, 65, 66].contains(style)
+        default: return false
         }
     }
 

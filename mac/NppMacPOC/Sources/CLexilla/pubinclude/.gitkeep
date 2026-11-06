@@ -1,0 +1,1 @@
+// Carpeta vacía a propósito: publicHeadersPath de Package.swift. Git no guarda carpetas vacías y sin ella el clon no compila.

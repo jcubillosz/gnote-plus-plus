@@ -8,14 +8,7 @@ enum BraceMatcher {
     /// STYLE_BRACEBAD. SCI_BRACEMATCH ya ignora llaves de otro estilo (p.ej. dentro de strings
     /// o comentarios si la llave de partida está en código).
     static func updateBraces(editor: ScintillaView) {
-        let caret = Int(ScintillaView.directCall(editor, message: SCI_GETCURRENTPOS, wParam: 0, lParam: 0))
-        var bracePosition = -1
-        if caret > 0, isBrace(charAt(editor, caret - 1)) {
-            bracePosition = caret - 1
-        } else if isBrace(charAt(editor, caret)) {
-            bracePosition = caret
-        }
-        guard bracePosition >= 0 else {
+        guard let bracePosition = braceAtCaret(editor) else {
             _ = ScintillaView.directCall(editor, message: SCI_BRACEHIGHLIGHT, wParam: uptr_t(bitPattern: -1), lParam: -1)
             return
         }
@@ -25,6 +18,29 @@ enum BraceMatcher {
         } else {
             _ = ScintillaView.directCall(editor, message: SCI_BRACEBADLIGHT, wParam: uptr_t(bracePosition), lParam: 0)
         }
+    }
+
+    private static func braceAtCaret(_ editor: ScintillaView) -> Int? {
+        let caret = Int(ScintillaView.directCall(editor, message: SCI_GETCURRENTPOS, wParam: 0, lParam: 0))
+        if caret > 0, isBrace(charAt(editor, caret - 1)) { return caret - 1 }
+        if isBrace(charAt(editor, caret)) { return caret }
+        return nil
+    }
+
+    /// Ir a la llave pareja (Ctrl+B de Notepad++). `select`: selecciona de una llave a la otra,
+    /// incluyendo ambas. Devuelve false sin llave en el caret o sin pareja.
+    @discardableResult
+    static func goToMatchingBrace(editor: ScintillaView, select: Bool) -> Bool {
+        guard let brace = braceAtCaret(editor) else { return false }
+        let match = Int(ScintillaView.directCall(editor, message: SCI_BRACEMATCH, wParam: uptr_t(brace), lParam: 0))
+        guard match >= 0 else { return false }
+        if select {
+            let start = min(brace, match), end = max(brace, match) + 1
+            _ = ScintillaView.directCall(editor, message: SCI_SETSEL, wParam: uptr_t(start), lParam: sptr_t(end))
+        } else {
+            _ = ScintillaView.directCall(editor, message: SCI_GOTOPOS, wParam: uptr_t(match), lParam: 0)
+        }
+        return true
     }
 
     private static func charAt(_ editor: ScintillaView, _ position: Int) -> UInt8 {

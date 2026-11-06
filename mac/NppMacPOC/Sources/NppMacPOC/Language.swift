@@ -83,7 +83,7 @@ struct CommentSyntax: Equatable {
     var isAvailable: Bool { line != nil || (blockStart != nil && blockEnd != nil) }
 }
 
-private func hexRRGGBBToScintillaBGR(_ hex: String) -> sptr_t? {
+func hexRRGGBBToScintillaBGR(_ hex: String) -> sptr_t? {
     guard hex.count == 6, let value = UInt32(hex, radix: 16) else { return nil }
     let r = (value >> 16) & 0xFF
     let g = (value >> 8) & 0xFF
@@ -222,6 +222,16 @@ func globalStyle(name: String, theme: EditorTheme) -> StyleSpec? {
     return StyleSpec(fore: fore, back: back, fontStyle: nil)
 }
 
+/// Solo el fondo de un estilo global: "Current line background colour" trae bgColor sin
+/// fgColor, y globalStyle(name:theme:) descarta esos estilos.
+func globalBackColour(name: String, theme: EditorTheme) -> sptr_t? {
+    guard let raw = npp_lookup_global_style(theme.xmlPath, name) else { return nil }
+    defer { npp_free_string(raw) }
+    let parts = String(cString: raw).split(separator: ",", omittingEmptySubsequences: false)
+    guard parts.count == 2 else { return nil }
+    return hexRRGGBBToScintillaBGR(String(parts[1]))
+}
+
 /// Nombres de todos los `<Language name="...">` de langs.model.xml + el overlay propio,
 /// unidos, sin duplicados y ordenados alfabéticamente. Usado para poblar el menú
 /// "Language" (forzar lenguaje manualmente).
@@ -338,19 +348,12 @@ private func setLexerProperty(_ editor: ScintillaView, _ key: String, _ value: S
 }
 
 /// Tinte de fondo "documento bloqueado": recorre todos los estilos de texto (0...STYLE_MAX)
-/// con SCI_STYLESETBACK, dejando el color el margen de números de línea (STYLE_LINENUMBER)
-/// tal como lo dejó el tema — el número de línea no es "texto del documento" y mezclarlo con
-/// el tinte lo haría menos legible sin aportar a la señal de "esto está bloqueado".
+/// con SCI_STYLESETBACK, salvo el margen de números de línea (STYLE_LINENUMBER: no es "texto
+/// del documento" y teñirlo lo haría menos legible) y las llaves pareadas (STYLE_BRACELIGHT/
+/// BRACEBAD: con el tinte encima el resaltado de llaves desaparecía).
 ///
-/// NO tiñe SCI_SETCARETLINEBACK (línea del cursor): esa feature no está habilitada en
-/// ningún lugar de la app hoy (sin resaltado de línea de cursor propio, sin preferencia
-/// que lo active), y a diferencia de los estilos de arriba, no hay ningún "reapply normal"
-/// que la restaure al desbloquear — applyGlobalStyle no la toca. Teñirla la dejaría navy
-/// para siempre desde el primer bloqueo, en cualquier pestaña, porque ScintillaView es
-/// compartido. Si se habilita resaltado de línea de cursor como feature propia más
-/// adelante, hay que sumar acá su tinte Y su restauración simétrica (leer el color normal
-/// del tema, ej. "Current line background colour" vía globalStyle(name:theme:)) antes de
-/// volver a tocar este mensaje.
+/// NO tiñe la línea actual (elemento CARET_LINE_BACK): applyCaretLine le da un color propio en
+/// documentos bloqueados (D3DFF2 claro / 1C2F4D oscuro) que contrasta con este tinte.
 ///
 /// Se llama desde reapplyPreferencesAndTheme() al final, solo si el documento activo está
 /// bloqueado: como applyLanguage (SCI_STYLECLEARALL) y applyGlobalStyle ya corrieron antes en
@@ -359,7 +362,7 @@ private func setLexerProperty(_ editor: ScintillaView, _ key: String, _ value: S
 func applyLockTint(_ editor: ScintillaView, theme: EditorTheme) {
     let tintHex = theme == .dark ? "0F1B2E" : "E8EFF9"
     guard let tint = hexRRGGBBToScintillaBGR(tintHex) else { return }
-    for style in 0...STYLE_MAX where style != STYLE_LINENUMBER {
+    for style in 0...STYLE_MAX where style != STYLE_LINENUMBER && style != STYLE_BRACELIGHT && style != STYLE_BRACEBAD {
         _ = ScintillaView.directCall(editor, message: SCI_STYLESETBACK, wParam: uptr_t(style), lParam: tint)
     }
 }

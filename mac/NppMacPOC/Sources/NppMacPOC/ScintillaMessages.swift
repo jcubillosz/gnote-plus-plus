@@ -17,7 +17,6 @@ let SCI_STYLESETITALIC: UInt32 = 2054
 let SCI_STYLESETSIZE: UInt32 = 2055
 let SCI_STYLESETFONT: UInt32 = 2056
 let SCI_STYLESETUNDERLINE: UInt32 = 2059
-let SCI_SETSELBACK: UInt32 = 2068
 let SCI_SETCARETFORE: UInt32 = 2069
 let SCI_SETUSETABS: UInt32 = 2124
 let SCI_GETCOLUMN: UInt32 = 2129
@@ -124,15 +123,6 @@ let SCI_GETXOFFSET: UInt32 = 2398
 let SCI_SETXOFFSET: UInt32 = 2397
 let SCI_SETSELECTIONSERIALIZED: UInt32 = 2784
 let SCI_GETSELECTIONSERIALIZED: UInt32 = 2785
-/// Índice de indicador dedicado a highlight de búsqueda. Los indicadores 0-7 pueden estar
-/// en uso por lexers/estilos; 9 está libre y fuera del rango típico usado por Scintilla/Lexilla.
-let INDICATOR_FIND_HIGHLIGHT: Int = 9
-/// Índice de indicador dedicado a marcar el match actual (distinto del resto pintado por
-/// INDICATOR_FIND_HIGHLIGHT). 10 está libre por la misma razón que 9.
-let INDICATOR_FIND_CURRENT: Int = 10
-/// Índice de indicador dedicado al subrayado ortográfico (Task 10). 11 sigue libre por la
-/// misma razón que 9/10.
-let INDICATOR_SPELL: Int = 11
 /// Estilo de indicador "squiggle" (subrayado ondulado, tipo corrector ortográfico nativo de
 /// macOS). Confirmado en scintilla/include/Scintilla.iface como INDIC_SQUIGGLEPIXMAP=13.
 let INDIC_SQUIGGLEPIXMAP: Int = 13
@@ -145,6 +135,8 @@ let SCI_POSITIONFROMPOINTCLOSE: UInt32 = 2023
 /// Para reconstruir el ancho total de márgenes (ViewStyle::fixedColumnWidth): margen
 /// izquierdo + suma de SCI_GETMARGINWIDTHN de cada margen.
 let SCI_GETMARGINLEFT: UInt32 = 2156
+let SCI_SETMARGINRIGHT: UInt32 = 2157
+let SCI_GETMARGINRIGHT: UInt32 = 2158
 let SCI_GETMARGINWIDTHN: UInt32 = 2243
 let SCI_GETMARGINS: UInt32 = 2253
 /// Valor del indicador en una posición dada (wParam=indicador, lParam=posición). Con
@@ -247,20 +239,22 @@ let SCI_SELECTIONDUPLICATE: UInt32 = 2469
 let SCI_MOVESELECTEDLINESUP: UInt32 = 2620
 let SCI_MOVESELECTEDLINESDOWN: UInt32 = 2621
 let SCI_LINEDELETE: UInt32 = 2338
-let SCI_TARGETFROMSELECTION: UInt32 = 2287
 let SCI_LINESJOIN: UInt32 = 2288
 let SCI_UPPERCASE: UInt32 = 2341
 let SCI_LOWERCASE: UInt32 = 2340
 let SCI_SETTARGETRANGE: UInt32 = 2686
 let SCI_GETLINEENDPOSITION: UInt32 = 2136
+let SCI_POSITIONBEFORE: UInt32 = 2417
+let SCI_POSITIONAFTER: UInt32 = 2418
 
 // Smart highlight (SmartHighlight.swift).
 let SCI_WORDSTARTPOSITION: UInt32 = 2266
 let SCI_WORDENDPOSITION: UInt32 = 2267
 let SC_UPDATE_SELECTION: Int = 0x2
 let INDIC_ROUNDBOX: Int = 7
-/// 8: libre, debajo de los de Find (9/10) y el corrector (11).
-let INDICATOR_SMART_HIGHLIGHT: Int = 8
+let INDIC_HIDDEN: Int = 5
+let SCI_GETINDICATORCURRENT: UInt32 = 2501
+let SCI_SETINDICATORVALUE: UInt32 = 2502
 
 // Marcadores y plegado (Bookmarks.swift, NppMacPOCApp.init, applyLanguage).
 let SC_MARGIN_SYMBOL: Int = 0
@@ -319,8 +313,6 @@ let SCI_BRACEBADLIGHT: UInt32 = 2352
 let SCI_BRACEMATCH: UInt32 = 2353
 let STYLE_BRACELIGHT: Int = 34
 let STYLE_BRACEBAD: Int = 35
-/// 12: libre (8 smart highlight, 9/10 Find, 11 corrector).
-let INDICATOR_TAG_MATCH: Int = 12
 let SCI_SETZOOM: UInt32 = 2373
 let SCI_CONVERTEOLS: UInt32 = 2029
 
@@ -354,6 +346,14 @@ let SCI_SETHSCROLLBAR: UInt32 = 2130
 let SCI_SETCARETSTYLE: UInt32 = 2512
 let CARETSTYLE_INVISIBLE: Int = 0
 let SCI_SETCARETLINEVISIBLE: UInt32 = 2096
+let SCI_SETELEMENTCOLOUR: UInt32 = 2753
+let SCI_RESETELEMENTCOLOUR: UInt32 = 2755
+let SCI_SETCARETLINEVISIBLEALWAYS: UInt32 = 2655
+let SC_ELEMENT_CARET_LINE_BACK: Int = 50
+let SC_ELEMENT_SELECTION_BACK: Int = 11
+let SC_ELEMENT_SELECTION_ADDITIONAL_BACK: Int = 13
+let SC_ELEMENT_SELECTION_INACTIVE_BACK: Int = 17
+let SC_ELEMENT_SELECTION_INACTIVE_ADDITIONAL_BACK: Int = 19
 let SCI_TEXTHEIGHT: UInt32 = 2279
 let SCI_DOCLINEFROMVISIBLE: UInt32 = 2221
 let SCI_VISIBLEFROMDOCLINE: UInt32 = 2220
@@ -367,3 +367,21 @@ func firstVisibleDocumentLine(_ editor: ScintillaView) -> Int {
     let display = ScintillaView.directCall(editor, message: SCI_GETFIRSTVISIBLELINE, wParam: 0, lParam: 0)
     return Int(ScintillaView.directCall(editor, message: SCI_DOCLINEFROMVISIBLE, wParam: uptr_t(max(0, display)), lParam: 0))
 }
+
+// Lote 5: fin de línea, guías de indentación y línea de margen.
+let SCI_SETVIEWEOL: UInt32 = 2356
+let SCI_SETINDENTATIONGUIDES: UInt32 = 2132
+let SC_IV_NONE: Int = 0
+let SC_IV_LOOKBOTH: Int = 3
+let SCI_SETEDGEMODE: UInt32 = 2363
+let SCI_SETEDGECOLUMN: UInt32 = 2361
+let SCI_SETEDGECOLOUR: UInt32 = 2365
+let EDGE_NONE: Int = 0
+let EDGE_LINE: Int = 1
+let STYLE_INDENTGUIDE: Int = 37
+
+let SCI_SETLINEINDENTATION: UInt32 = 2126
+let SCI_GETLINEINDENTATION: UInt32 = 2127
+let SCI_GETLINEINDENTPOSITION: UInt32 = 2128
+let SCI_GETTABWIDTH: UInt32 = 2121
+let SCI_GETINDENT: UInt32 = 2123

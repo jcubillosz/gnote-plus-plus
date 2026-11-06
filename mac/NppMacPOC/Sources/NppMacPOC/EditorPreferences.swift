@@ -15,6 +15,11 @@ final class EditorPreferences: ObservableObject {
     @Published var wordWrap: Bool { didSet { store(wordWrap, "editor.wordWrap") } }
     @Published var showLineNumbers: Bool { didSet { store(showLineNumbers, "editor.showLineNumbers") } }
     @Published var showWhitespace: Bool { didSet { store(showWhitespace, "editor.showWhitespace") } }
+    @Published var highlightCurrentLine: Bool { didSet { store(highlightCurrentLine, "editor.highlightCurrentLine") } }
+    @Published var showEOL: Bool { didSet { store(showEOL, "editor.showEOL") } }
+    @Published var showIndentGuides: Bool { didSet { store(showIndentGuides, "editor.showIndentGuides") } }
+    @Published var showEdge: Bool { didSet { store(showEdge, "editor.showEdge") } }
+    @Published var edgeColumn: Int { didSet { store(edgeColumn, "editor.edgeColumn") } }
     @Published var showFoldMargin: Bool { didSet { store(showFoldMargin, "editor.showFoldMargin") } }
     /// Puntos de zoom de Scintilla (SCI_SETZOOM), persistido: el ScintillaView es uno solo y
     /// compartido, así que el zoom es global, no por documento.
@@ -27,6 +32,9 @@ final class EditorPreferences: ObservableObject {
     /// siempre; esto solo muestra u oculta el margen.
     @Published var showChangeHistory: Bool { didSet { store(showChangeHistory, "editor.showChangeHistory") } }
     @Published var autoCloseBrackets: Bool { didSet { store(autoCloseBrackets, "editor.autoCloseBrackets") } }
+    /// Sangría automática al escribir (AutoIndent.swift).
+    @Published var autoIndent: Bool { didSet { store(autoIndent, "editor.autoIndent") } }
+    @Published var markdownLargeToolbar: Bool { didSet { store(markdownLargeToolbar, "markdown.largeToolbar") } }
     /// Apagado por defecto, como en Notepad++: cambia líneas que el usuario no tocó.
     @Published var trimTrailingWhitespaceOnSave: Bool { didSet { store(trimTrailingWhitespaceOnSave, "editor.trimOnSave") } }
 
@@ -45,12 +53,19 @@ final class EditorPreferences: ObservableObject {
         wordWrap = (defaults.object(forKey: "editor.wordWrap") as? Bool) ?? false
         showLineNumbers = (defaults.object(forKey: "editor.showLineNumbers") as? Bool) ?? true
         showWhitespace = (defaults.object(forKey: "editor.showWhitespace") as? Bool) ?? false
+        highlightCurrentLine = (defaults.object(forKey: "editor.highlightCurrentLine") as? Bool) ?? true
+        showEOL = (defaults.object(forKey: "editor.showEOL") as? Bool) ?? false
+        showIndentGuides = (defaults.object(forKey: "editor.showIndentGuides") as? Bool) ?? true
+        showEdge = (defaults.object(forKey: "editor.showEdge") as? Bool) ?? false
+        edgeColumn = (defaults.object(forKey: "editor.edgeColumn") as? Int) ?? 80
         showFoldMargin = (defaults.object(forKey: "editor.showFoldMargin") as? Bool) ?? true
         zoom = (defaults.object(forKey: "editor.zoom") as? Int) ?? 0
         autoComplete = (defaults.object(forKey: "editor.autoComplete") as? Bool) ?? true
         showDocumentMap = (defaults.object(forKey: "editor.showDocumentMap") as? Bool) ?? true
         showChangeHistory = (defaults.object(forKey: "editor.showChangeHistory") as? Bool) ?? true
         autoCloseBrackets = (defaults.object(forKey: "editor.autoCloseBrackets") as? Bool) ?? true
+        autoIndent = (defaults.object(forKey: "editor.autoIndent") as? Bool) ?? true
+        markdownLargeToolbar = (defaults.object(forKey: "markdown.largeToolbar") as? Bool) ?? false
         trimTrailingWhitespaceOnSave = (defaults.object(forKey: "editor.trimOnSave") as? Bool) ?? false
     }
 
@@ -71,9 +86,14 @@ final class EditorPreferences: ObservableObject {
         _ = ScintillaView.directCall(editor, message: SCI_SETWRAPMODE, wParam: uptr_t(wordWrap ? SC_WRAP_WORD : SC_WRAP_NONE), lParam: 0)
         _ = ScintillaView.directCall(editor, message: SCI_SETMARGINWIDTHN, wParam: 1, lParam: sptr_t(showLineNumbers ? 40 : 0))
         _ = ScintillaView.directCall(editor, message: SCI_SETVIEWWS, wParam: uptr_t(showWhitespace ? SCWS_VISIBLEALWAYS : SCWS_INVISIBLE), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETVIEWEOL, wParam: uptr_t(showEOL ? 1 : 0), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETINDENTATIONGUIDES, wParam: uptr_t(showIndentGuides ? SC_IV_LOOKBOTH : SC_IV_NONE), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETEDGEMODE, wParam: uptr_t(showEdge ? EDGE_LINE : EDGE_NONE), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETEDGECOLUMN, wParam: uptr_t(edgeColumn), lParam: 0)
         _ = ScintillaView.directCall(editor, message: SCI_SETMARGINWIDTHN, wParam: uptr_t(MARGIN_FOLD), lParam: sptr_t(showFoldMargin ? 14 : 0))
         _ = ScintillaView.directCall(editor, message: SCI_SETMARGINWIDTHN, wParam: uptr_t(MARGIN_CHANGE_HISTORY), lParam: sptr_t(showChangeHistory ? 4 : 0))
         _ = ScintillaView.directCall(editor, message: SCI_SETZOOM, wParam: uptr_t(bitPattern: zoom), lParam: 0)
+        DocumentMapView.applyMargin(to: editor, visible: showDocumentMap)
     }
 
     /// Aplica fuente primero, luego el resto — ver nota en applyFont().

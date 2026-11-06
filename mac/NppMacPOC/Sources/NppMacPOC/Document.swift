@@ -10,6 +10,9 @@ final class Document: Identifiable {
     var url: URL?
     var displayName: String
     var languageProfile: LanguageProfile
+    /// Lenguaje elegido a mano en el menú (nil = el de la extensión). Hace falta recordarlo
+    /// porque un cambio de tema re-perfila todos los documentos y lo perdería.
+    var forcedLanguageName: String?
     /// Encoding con el que se leyó y con el que se vuelve a escribir. Guardar en
     /// otro encoding cambiaría el archivo sin que el usuario lo pida.
     var encoding: String.Encoding
@@ -76,6 +79,18 @@ final class TabsViewModel: ObservableObject {
         didSet { updateWatchedFolders() }
     }
     @Published private(set) var activeIndex: Int?
+
+    /// Reordena pestañas (arrastrar). `destination` es el índice final del documento movido.
+    /// No hay SETDOCPOINTER: el documento activo sigue siendo el mismo, solo cambia su índice.
+    func moveDocument(from source: Int, to destination: Int) {
+        guard documents.indices.contains(source), documents.indices.contains(destination),
+              source != destination else { return }
+        let active = activeIndex.map { documents[$0] }
+        var reordered = documents
+        reordered.insert(reordered.remove(at: source), at: destination)
+        documents = reordered
+        if let active { activeIndex = documents.firstIndex { $0 === active } }
+    }
 
     let editor: ScintillaView
     let preferences: EditorPreferences
@@ -259,31 +274,58 @@ final class TabsViewModel: ObservableObject {
         activate(at: ((current + offset) % documents.count + documents.count) % documents.count)
     }
 
-    func close(at index: Int) {
-        guard documents.indices.contains(index) else { return }
+    // close(at:) y applyTheme viven en la clase, no en TabsViewModel+Saving/+Theme: escriben
+    // documents/activeIndex/currentTheme, que son private(set) y una extensión en otro archivo
+    // no puede mutarlos.
+
+    /// false si el usuario canceló (o el guardado falló).
+    @discardableResult
+    func close(at index: Int) -> Bool {
+        guard documents.indices.contains(index) else { return true }
         syncDirtyFlagOfActiveDocument()
         let document = documents[index]
+        let previouslyActive = activeDocument
+        if document.isDirty {
+            // Editor compartido: para ver y guardar lo que se cierra tiene que estar activo.
+            if document !== activeDocument { activate(at: index) }
+            switch askSaveBeforeClosing(document) {
+            case .cancel: return false
+            case .save: guard saveActive() else { return false }
+            case .discard: break
+            }
+        }
+        let editorShowsClosed = (document === activeDocument)
+        guard let closingIndex = documents.firstIndex(where: { $0 === document }) else { return true }
         // Cualquier refresh de preview agendado apunta al documento que se va: cancelarlo
         // acá y no solo cuando la lista queda vacía, o correría con una carpeta base muerta.
-        preview.cancelPendingRefresh()
-        if document.isDirty, !confirmDiscard(message: L("\(document.displayName) tiene cambios sin guardar. ¿Cerrar de todas formas?")) {
-            return
-        }
+        if editorShowsClosed { preview.cancelPendingRefresh() }
         _ = ScintillaView.directCall(editor, message: SCI_RELEASEDOCUMENT, wParam: 0, lParam: document.pointer)
         // Libera el estado de "ignorar palabra"/aprendizaje que NSSpellChecker guarda por
         // tag: sin esto, tags de pestañas cerradas se acumulan durante toda la sesión.
         NSSpellChecker.shared.closeSpellDocument(withTag: document.spellDocumentTag)
-        documents.remove(at: index)
+        documents.remove(at: closingIndex)
         if documents.isEmpty {
             activeIndex = nil
             statusBar.reset()
             find.reset()
             preview.cancelPendingRefresh()
-            return
+            return true
         }
-        let newIndex = min(index, documents.count - 1)
-        activeIndex = nil // fuerza que activate(at:) no haga early-return por "index != activeIndex"
-        activate(at: newIndex)
+        if let previouslyActive, previouslyActive !== document,
+           let i = documents.firstIndex(where: { $0 === previouslyActive }) {
+            // B4: cerrar una pestaña inactiva no cambia la activa; solo se reactiva si el
+            // editor había quedado mostrando la cerrada.
+            if editorShowsClosed { activeIndex = nil; activate(at: i) } else { activeIndex = i }
+        } else {
+            activeIndex = nil // fuerza que activate(at:) no haga early-return por "index != activeIndex"
+            activate(at: min(closingIndex, documents.count - 1))
+        }
+        return true
+    }
+
+    var dirtyDocuments: [Document] {
+        syncDirtyFlagOfActiveDocument()
+        return documents.filter { $0.isDirty }
     }
 
     private func attachToEditor(_ document: Document) {
@@ -313,44 +355,6 @@ final class TabsViewModel: ObservableObject {
         statusBar.encoding = document.encodingName
         statusBar.encodingNote = document.encodingNote
         statusBar.eol = document.eol.displayName
-    }
-
-    /// Reaplica fuente/opciones de edición, el lenguaje del documento activo y los colores
-    /// globales del tema. SCI_STYLECLEARALL (dentro de applyLanguage) propaga STYLE_DEFAULT
-    /// a TODOS los estilos numerados, incluido STYLE_LINENUMBER — por eso el tema global debe
-    /// reaplicarse después de applyLanguage en cada attach, o el número de línea/caret/selección
-    /// quedan pisados por los colores de texto plano.
-    func reapplyPreferencesAndTheme() {
-        preferences.apply(to: editor) // fuente primero (ver nota en EditorPreferences.applyFont)
-        // SCI_STYLECLEARALL (dentro de applyLanguage, más abajo) copia el STYLE_DEFAULT
-        // ACTUAL a todos los estilos, incluido el 0 — no un valor neutro. Si el documento
-        // anterior quedó teñido navy por un bloqueo (applyLockTint tiñe STYLE_DEFAULT
-        // también), y el perfil nuevo no define estilos propios (ej. texto plano,
-        // nullProfile en Language.swift), STYLECLEARALL propaga ese navy y nada lo
-        // corrige después: applyGlobalStyle de abajo llega tarde para estilos que un
-        // lenguaje sin stylers.xml nunca toca. Como ScintillaView es compartido entre
-        // pestañas, el tinte se filtraba incluso a pestañas de texto plano que nunca se
-        // bloquearon. Fijar acá el color real del tema en STYLE_DEFAULT, ANTES de
-        // STYLECLEARALL, garantiza que lo que se propaga sea siempre el default correcto,
-        // sin importar si el documento estaba bloqueado o si el lenguaje nuevo define
-        // estilos propios.
-        if let defaultStyle = globalStyle(name: "Default Style", theme: currentTheme) {
-            setStyle(editor, STYLE_DEFAULT, fore: defaultStyle.fore, back: defaultStyle.back)
-        }
-        if let profile = activeDocument?.languageProfile {
-            applyLanguage(editor, profile: profile)
-        }
-        applyGlobalStyle(theme: currentTheme)
-        // Al final y condicional: applyLanguage (STYLECLEARALL) y applyGlobalStyle ya
-        // dejaron los colores "normales" puestos, así que el tinte de bloqueo pisa encima
-        // sin que un cambio de tema/lenguaje/preferencias lo pierda. Si el documento no
-        // está bloqueado, no se toca nada más — los colores de arriba son el resultado final.
-        // La minimapa copia los estilos del lenguaje y el tema: son de cada vista, no del
-        // documento compartido.
-        documentMap.applyStyle(profile: activeDocument?.languageProfile, theme: currentTheme, fontName: preferences.fontName)
-        if activeDocument?.isLocked == true {
-            applyLockTint(editor, theme: currentTheme)
-        }
     }
 
     func syncDirtyFlagOfActiveDocument() {
@@ -416,68 +420,6 @@ final class TabsViewModel: ObservableObject {
         reapplyPreferencesAndTheme()
         // Document es una clase dentro de un array @Published: mutarle isLocked no
         // republica nada por sí solo, y el botón/menú de candado no se actualizarían.
-        objectWillChange.send()
-    }
-
-    private func confirmDiscard(message: String) -> Bool {
-        let alert = NSAlert()
-        alert.messageText = message
-        alert.addButton(withTitle: L("Descartar"))
-        alert.addButton(withTitle: L("Cancelar"))
-        return alert.runModal() == .alertFirstButtonReturn
-    }
-
-    // MARK: - Guardar
-
-    func saveActive() {
-        guard let document = activeDocument else { return }
-        guard let url = document.url else {
-            saveActiveAs()
-            return
-        }
-        write(document: document, to: url)
-    }
-
-    /// Siempre pregunta el destino, incluso si el documento ya tiene ruta.
-    func saveActiveAs() {
-        guard let document = activeDocument else { return }
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = document.displayName
-        if let current = document.url {
-            panel.directoryURL = current.deletingLastPathComponent()
-        }
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        // El documento se reapunta al destino nuevo SÓLO si la escritura salió
-        // bien: si falla, renombrar la pestaña dejaría al usuario creyendo que su
-        // trabajo vive en un archivo que nunca se creó.
-        let previousExtension = document.url?.pathExtension.lowercased()
-        let previousURL = document.url
-        guard write(document: document, to: url) else { return }
-        document.url = url
-        document.displayName = url.lastPathComponent
-        updateWatchedFolders()
-        recentFiles.add(url)
-        // Guardar-como un documento bloqueado tiene que persistir la ruta nueva: si ya
-        // tenía una ruta bloqueada, la migra; si era un "Nuevo" bloqueado solo para la
-        // sesión, ahora que tiene ruta el bloqueo pasa a sobrevivir a cerrar la app.
-        if document.isLocked {
-            if let previousURL {
-                LockedFiles.move(from: previousURL, to: url)
-            } else {
-                LockedFiles.set(url, locked: true)
-            }
-        }
-
-        // Guardar como .py algo que era .txt tiene que recolorearlo. Va por
-        // reapplyPreferencesAndTheme y no por applyLanguage directo porque
-        // SCI_STYLECLEARALL pisa STYLE_LINENUMBER, el caret y la selección.
-        if url.pathExtension.lowercased() != previousExtension {
-            document.languageProfile = languageProfile(forExtension: url.pathExtension, theme: currentTheme)
-            reapplyPreferencesAndTheme()
-        }
-        // `documents` es @Published, pero Document es una clase: mutarle displayName
-        // no republica nada por sí solo y la pestaña seguiría con el nombre viejo.
         objectWillChange.send()
     }
 
@@ -652,94 +594,13 @@ final class TabsViewModel: ObservableObject {
             // la pestaña activa: recolorear una inactiva pisaría el estilo del documento
             // que sí está en pantalla (ScintillaView es uno solo y compartido).
             if new.pathExtension.lowercased() != previousExtension {
+                document.forcedLanguageName = nil
                 document.languageProfile = languageProfile(forExtension: new.pathExtension, theme: currentTheme)
                 if document === activeDocument {
                     reapplyPreferencesAndTheme()
                 }
             }
         }
-    }
-
-    /// Devuelve true sólo si el archivo quedó escrito en disco.
-    @discardableResult
-    private func write(document: Document, to url: URL) -> Bool {
-        // Otro programa modificó el archivo desde que se abrió/guardó acá: sin esto, guardar
-        // pisaba sus cambios sin aviso.
-        if document.url == url, !document.missingOnDisk, let recorded = document.diskStamp,
-           let current = FileStamp.of(url), current != recorded,
-           !confirmAction(
-               message: L("\(document.displayName) cambió en disco desde que lo abriste."),
-               detail: L("Otro programa lo modificó. Si lo sobrescribes, esos cambios se pierden."),
-               confirmTitle: L("Sobrescribir")
-           ) {
-            return false
-        }
-        // Markdown no: dos espacios al final de línea son un salto de línea.
-        if preferences.trimTrailingWhitespaceOnSave, !document.isLocked,
-           document.languageProfile.lexerName != "markdown" {
-            trimTrailingWhitespace(editor)
-        }
-        let text = currentText(editor)
-        guard let data = encode(text, for: document) else { return false }
-        do {
-            // .atomic escribe a un temporal y renombra: sin esto, un disco lleno o
-            // un error de I/O a mitad de camino deja el archivo original truncado y
-            // su contenido anterior perdido.
-            try data.write(to: url, options: .atomic)
-            document.diskStamp = FileStamp.of(url)
-            document.missingOnDisk = false
-            document.isDirty = false
-            _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
-            // Mismo motivo que en setActiveDirty(): sin esto, el punto de la pestaña
-            // seguiría visible después de guardar hasta el próximo cambio de pestaña.
-            objectWillChange.send()
-            return true
-        } catch {
-            presentAlert(
-                L("No se pudo guardar \(document.displayName)."),
-                detail: error.localizedDescription
-            )
-            return false
-        }
-    }
-
-    /// Codifica con el encoding con el que se abrió el archivo, para no convertirlo
-    /// sin que el usuario lo pida. Si el texto dejó de ser representable en ese
-    /// encoding (pegar un emoji en un archivo Latin-1, por ejemplo) ofrece pasarlo
-    /// a UTF-8 en vez de abortar en silencio, que era lo que pasaba antes: el
-    /// guardado no hacía nada y el usuario creía que había guardado.
-    private func encode(_ text: String, for document: Document) -> Data? {
-        if let data = text.data(using: document.encoding) {
-            return data
-        }
-
-        let previousName = document.encodingName
-        let alert = NSAlert()
-        alert.messageText = L("El texto no se puede guardar como \(previousName).")
-        alert.informativeText = L("Tiene caracteres que ese encoding no representa. Guardarlo como UTF-8 los admite todos, pero cambia la codificación del archivo.")
-        alert.addButton(withTitle: L("Guardar como UTF-8"))
-        alert.addButton(withTitle: L("Cancelar"))
-        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
-
-        document.encoding = .utf8
-        document.encodingName = "UTF-8"
-        document.encodingNote = L("Convertido desde \(previousName) al guardar: el texto tenía caracteres que \(previousName) no representa.")
-        publishFileInfo(of: document)
-        // Data(_:) sobre la vista utf8 no es opcional — todo String es representable
-        // en UTF-8, y devolver un Data? acá reintroduciría un fallo silencioso.
-        return Data(text.utf8)
-    }
-
-    /// ¿Las dos URLs apuntan al mismo archivo en disco? Compara la identidad que reporta el
-    /// sistema de archivos, no la ruta: en un volumen case-insensitive "a.txt" y "A.txt" son
-    /// rutas distintas y el mismo archivo.
-    private func isSameFile(_ lhs: URL, _ rhs: URL) -> Bool {
-        let key: URLResourceKey = .fileResourceIdentifierKey
-        guard let a = try? lhs.resourceValues(forKeys: [key]).fileResourceIdentifier,
-              let b = try? rhs.resourceValues(forKeys: [key]).fileResourceIdentifier else {
-            return false
-        }
-        return a.isEqual(b)
     }
 
     /// Pide una línea de texto con un NSAlert modal. Devuelve nil si el usuario cancela.
@@ -761,12 +622,51 @@ final class TabsViewModel: ObservableObject {
         return field.stringValue
     }
 
-    private func presentAlert(_ message: String, detail: String) {
+    private func confirmDiscard(message: String) -> Bool {
         let alert = NSAlert()
         alert.messageText = message
-        alert.informativeText = detail
-        alert.addButton(withTitle: L("OK"))
-        alert.runModal()
+        alert.addButton(withTitle: L("Descartar"))
+        alert.addButton(withTitle: L("Cancelar"))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    /// ¿Las dos URLs apuntan al mismo archivo en disco? Compara la identidad que reporta el
+    /// sistema de archivos, no la ruta: en un volumen case-insensitive "a.txt" y "A.txt" son
+    /// rutas distintas y el mismo archivo.
+    private func isSameFile(_ lhs: URL, _ rhs: URL) -> Bool {
+        let key: URLResourceKey = .fileResourceIdentifierKey
+        guard let a = try? lhs.resourceValues(forKeys: [key]).fileResourceIdentifier,
+              let b = try? rhs.resourceValues(forKeys: [key]).fileResourceIdentifier else {
+            return false
+        }
+        return a.isEqual(b)
+    }
+
+    // MARK: - Tema (claro/oscuro, sigue al sistema)
+
+    private func profile(for document: Document, theme: EditorTheme) -> LanguageProfile {
+        if let name = document.forcedLanguageName {
+            return languageProfile(byLanguageName: name, theme: theme)
+        }
+        return languageProfile(forExtension: document.url?.pathExtension ?? "", theme: theme)
+    }
+
+    func applyTheme(_ theme: EditorTheme) {
+        currentTheme = theme
+        // Los colores del tema van horneados en el perfil: hay que re-perfilar también los
+        // documentos de fondo, o al activarlos conservarían los colores del tema anterior.
+        for document in documents {
+            document.languageProfile = profile(for: document, theme: theme)
+        }
+        // Ruta única: reapplyPreferencesAndTheme() ya hace, en orden, el reset de
+        // STYLE_DEFAULT previo a STYLECLEARALL (ver su comentario) + applyLanguage +
+        // applyGlobalStyle + applyLockTint si el documento activo está bloqueado. Antes,
+        // este método duplicaba applyLanguage/applyGlobalStyle sin el reset ni el tinte:
+        // un cambio de tema con el documento bloqueado dejaba estilo 0 navy del tema
+        // VIEJO pisado por STYLECLEARALL sin corregir, y encima nunca reaplicaba el tinte
+        // del tema nuevo. Iba por acá que un toggle de tema con un documento de texto
+        // plano bloqueado (o recién desbloqueado) filtraba navy a otras pestañas.
+        reapplyPreferencesAndTheme()
     }
 
     // MARK: - Convertir fin de línea
@@ -823,62 +723,4 @@ final class TabsViewModel: ObservableObject {
         _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
     }
 
-    // MARK: - Forzar lenguaje manualmente (solo sesión, no persiste)
-
-    func forceLanguage(_ langName: String) {
-        guard let document = activeDocument else { return }
-        let profile = languageProfile(byLanguageName: langName, theme: currentTheme)
-        document.languageProfile = profile
-        // Mismo motivo que en applyTheme/saveActiveAs: ir directo a applyLanguage salta el
-        // reset de STYLE_DEFAULT previo a STYLECLEARALL y el reaplicado del tinte de bloqueo
-        // que reapplyPreferencesAndTheme() hace en orden — en un documento bloqueado eso deja
-        // el tinte a medio aplicar y puede pisar número de línea/caret/selección.
-        reapplyPreferencesAndTheme()
-    }
-
-    // MARK: - Tema (claro/oscuro, sigue al sistema)
-
-    func applyTheme(_ theme: EditorTheme) {
-        currentTheme = theme
-        if let document = activeDocument, let url = document.url {
-            document.languageProfile = languageProfile(forExtension: url.pathExtension, theme: theme)
-        }
-        // Ruta única: reapplyPreferencesAndTheme() ya hace, en orden, el reset de
-        // STYLE_DEFAULT previo a STYLECLEARALL (ver su comentario) + applyLanguage +
-        // applyGlobalStyle + applyLockTint si el documento activo está bloqueado. Antes,
-        // este método duplicaba applyLanguage/applyGlobalStyle sin el reset ni el tinte:
-        // un cambio de tema con el documento bloqueado dejaba estilo 0 navy del tema
-        // VIEJO pisado por STYLECLEARALL sin corregir, y encima nunca reaplicaba el tinte
-        // del tema nuevo. Iba por acá que un toggle de tema con un documento de texto
-        // plano bloqueado (o recién desbloqueado) filtraba navy a otras pestañas.
-        reapplyPreferencesAndTheme()
-    }
-
-    /// Colores globales del tema (no ligados a un lenguaje): fondo/texto por defecto, número
-    /// de línea, selección y caret. Nombres confirmados leyendo <GlobalStyles> real de
-    /// stylers.model.xml/DarkModeDefault.xml.
-    private func applyGlobalStyle(theme: EditorTheme) {
-        if let defaultStyle = globalStyle(name: "Default Style", theme: theme) {
-            setStyle(editor, STYLE_DEFAULT, fore: defaultStyle.fore, back: defaultStyle.back)
-        }
-        if let lineNumber = globalStyle(name: "Line number margin", theme: theme) {
-            setStyle(editor, STYLE_LINENUMBER, fore: lineNumber.fore, back: lineNumber.back)
-        }
-        if let selection = globalStyle(name: "Selected text colour", theme: theme), let back = selection.back {
-            _ = ScintillaView.directCall(editor, message: SCI_SETSELBACK, wParam: 1, lParam: back)
-        }
-        applyBookmarkAndFoldColors(editor, theme: theme)
-        if let brace = globalStyle(name: "Brace highlight style", theme: theme) {
-            setStyle(editor, STYLE_BRACELIGHT, fore: brace.fore, back: brace.back)
-            _ = ScintillaView.directCall(editor, message: SCI_STYLESETBOLD, wParam: uptr_t(STYLE_BRACELIGHT), lParam: 1)
-        }
-        if let bad = globalStyle(name: "Bad brace colour", theme: theme) {
-            setStyle(editor, STYLE_BRACEBAD, fore: bad.fore, back: bad.back)
-        }
-        if let caret = globalStyle(name: "Caret colour", theme: theme) {
-            // SetCaretFore=2069(colour fore,) — el color va en wParam, no en lParam (confirmado
-            // contra scintilla/include/Scintilla.iface). Invertido pisaba el caret a negro.
-            _ = ScintillaView.directCall(editor, message: SCI_SETCARETFORE, wParam: uptr_t(caret.fore), lParam: 0)
-        }
-    }
 }

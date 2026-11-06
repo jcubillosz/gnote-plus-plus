@@ -32,8 +32,8 @@
   "applicationCategory": "DeveloperApplication",
   "applicationSubCategory": "Editor de Markdown y código",
   "operatingSystem": "macOS 13 o superior (Apple silicon)",
-  "softwareVersion": "1.3.1",
-  "dateModified": "2026-10-06",
+  "softwareVersion": "1.4.0",
+  "dateModified": "2026-11-06",
   "description": "Editor de Markdown y código, gratuito, de código abierto para macOS, basado en el código de Notepad++: vista previa de Markdown en vivo con diagramas Mermaid para prompts de IA, documentación y contenido web, y coloreado de sintaxis para todos los lenguajes de Notepad++.",
   "downloadUrl": "https://github.com/jcubillosz/gnote-plus-plus/releases/latest",
   "url": "https://jcubillosz.github.io/gnote-plus-plus/es/",
@@ -42,7 +42,7 @@
   "license": "https://www.gnu.org/licenses/gpl-3.0.html",
   "isAccessibleForFree": true,
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "author": { "@type": "Person", "name": "Jorge Cubillos", "url": "https://github.com/jcubillosz" },
+  "author": { "@type": "Person", "name": "jcubillosz", "url": "https://github.com/jcubillosz" },
   "codeRepository": "https://github.com/jcubillosz/gnote-plus-plus"
 }
 </script>
@@ -87,14 +87,14 @@
         <div class="actions">
           <a class="button button-primary" href="https://github.com/jcubillosz/gnote-plus-plus/releases/latest">Descargar para Mac</a>
         </div>
-        <p class="fineprint">Versión 1.3.1 (<a href="changelog/">novedades</a>). Requiere macOS 13 o superior en Apple silicon. Firmada y notarizada por Apple.</p>
+        <p class="fineprint">Versión 1.4.0 (<a href="changelog/">novedades</a>). Requiere macOS 13 o superior en Apple silicon. Firmada y notarizada por Apple.</p>
       </div>
       <img class="pitch-logo" src="../logo.png" width="240" height="240" alt="Logo de GNote++: un gato negro sosteniendo una hoja con el nombre GNote++">
     </div>
   </div>
   <div class="stage">
     <div class="wrap">
-      <img src="../screenshots/markdown-mermaid.png" width="1600" height="1000" alt="GNote++ editando un archivo Markdown con vista previa en vivo: diagrama de flujo Mermaid, alerta, lista de tareas y esquema del documento">
+      <img src="../screenshots/markdown-mermaid.png" width="1600" height="970" alt="GNote++ editando un archivo Markdown con vista previa en vivo: diagrama de flujo Mermaid, alerta, lista de tareas y esquema del documento">
       <p>Fuente Markdown a la izquierda, vista previa en vivo a la derecha, esquema en la barra lateral.</p>
     </div>
   </div>
@@ -133,7 +133,8 @@
       </ul>
       <ul>
         <li><strong>Diagramas Mermaid</strong>: flujo, secuencia, clases, estados, Gantt, torta, mapas mentales. Parte desde plantillas; exporta como PNG o SVG.</li>
-        <li><strong>Barra de formato</strong>, listas que continúan con Enter, formateo de tablas.</li>
+        <li><strong>Barra de formato compacta o grande</strong>: la grande funciona como un procesador de texto, con íconos y nombre, desplegables con muestras y una cuadrícula para elegir el tamaño de la tabla.</li>
+        <li>Listas que continúan con Enter, formateo de tablas, notas al pie, secciones plegables; ⌘B, ⌘I, ⌘K.</li>
         <li><strong>Esquema</strong> de títulos en la barra lateral.</li>
       </ul>
       <ul>
@@ -142,6 +143,10 @@
         <li><strong>Privado</strong>: la vista previa no ejecuta scripts y los diagramas se dibujan sin conexión.</li>
       </ul>
     </div>
+    <figure>
+      <img src="../screenshots/markdown-light.png" width="1600" height="970" loading="lazy" alt="GNote++ en modo claro con la barra de formato Markdown grande, vista previa en vivo y un diagrama Mermaid">
+      <figcaption>La barra de Markdown grande, en modo claro.</figcaption>
+    </figure>
   </section>
 
   <section aria-labelledby="codigo">
@@ -150,6 +155,7 @@
       <ul>
         <li><strong>Coloreado de sintaxis</strong> para todos los lenguajes de Notepad++, con sus temas en modo claro y oscuro.</li>
         <li><strong>Multicursor y edición en columna</strong>, autocompletado, llaves y etiquetas pareadas.</li>
+        <li><strong>Indentación automática</strong> al escribir y <strong>reindentar</strong>; <strong>formatear JSON y XML</strong>.</li>
       </ul>
       <ul>
         <li>Marcadores, plegado de código, historial de cambios, lista de funciones y <strong>minimapa</strong>.</li>
@@ -161,11 +167,15 @@
       </ul>
     </div>
     <figure>
-      <img src="../screenshots/editor.png" width="1600" height="1000" loading="lazy" alt="GNote++ editando un archivo Swift con árbol de archivos, pestañas, coloreado de sintaxis, plegado de código y minimapa">
+      <img src="../screenshots/editor.png" width="1600" height="970" loading="lazy" alt="GNote++ editando un archivo Swift con árbol de archivos, pestañas, coloreado de sintaxis, plegado de código y minimapa">
       <figcaption>Edición de código con árbol de archivos, plegado y minimapa.</figcaption>
     </figure>
     <figure>
-      <img src="../screenshots/find-in-files.png" width="1600" height="1000" loading="lazy" alt="Resultados de buscar en archivos agrupados por archivo en la barra lateral">
+      <img src="../screenshots/highlights.png" width="1600" height="970" loading="lazy" alt="Buscar con resaltar todo: cada coincidencia marcada en un archivo Swift, tema oscuro">
+      <figcaption>Buscar resalta todas las coincidencias, bien visibles también en modo oscuro.</figcaption>
+    </figure>
+    <figure>
+      <img src="../screenshots/find-in-files.png" width="1600" height="970" loading="lazy" alt="Resultados de buscar en archivos agrupados por archivo en la barra lateral">
       <figcaption>Buscar en archivos recorre la carpeta abierta y agrupa las coincidencias por archivo.</figcaption>
     </figure>
   </section>
@@ -206,7 +216,7 @@
   <section class="support" id="apoyar" aria-labelledby="apoyar-titulo">
     <h2 id="apoyar-titulo">Apoyar el proyecto</h2>
     <p>GNote++ es gratuito y se hace en tiempo libre. Si te ahorra tiempo, una donación ayuda a mantenerlo y a pagar la cuenta de desarrollador de Apple que permite abrirlo sin advertencias de seguridad.</p>
-    <a class="button button-secondary" href="https://www.paypal.com/donate/?hosted_button_id=Q2E7M3ZS53NF8">Donar con PayPal</a>
+    <a class="button button-secondary" href="https://www.paypal.com/ncp/payment/ARSKH5DQC8WAL">Donar con PayPal</a>
   </section>
 
   <section class="build" aria-labelledby="compilar">

@@ -31,8 +31,8 @@
   "applicationCategory": "DeveloperApplication",
   "applicationSubCategory": "Markdown and code editor",
   "operatingSystem": "macOS 13 or later (Apple silicon)",
-  "softwareVersion": "1.3.1",
-  "dateModified": "2026-10-06",
+  "softwareVersion": "1.4.0",
+  "dateModified": "2026-11-06",
   "description": "Free, open-source Markdown and code editor for macOS built on Notepad++ source code: live Markdown preview with Mermaid diagrams for AI prompts, documentation and web content, plus syntax highlighting for every Notepad++ language.",
   "downloadUrl": "https://github.com/jcubillosz/gnote-plus-plus/releases/latest",
   "url": "https://jcubillosz.github.io/gnote-plus-plus/",
@@ -41,7 +41,7 @@
   "license": "https://www.gnu.org/licenses/gpl-3.0.html",
   "isAccessibleForFree": true,
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "author": { "@type": "Person", "name": "Jorge Cubillos", "url": "https://github.com/jcubillosz" },
+  "author": { "@type": "Person", "name": "jcubillosz", "url": "https://github.com/jcubillosz" },
   "codeRepository": "https://github.com/jcubillosz/gnote-plus-plus",
   "featureList": [
     "Markdown live preview with GitHub Flavored Markdown",
@@ -98,14 +98,14 @@
         <div class="actions">
           <a class="button button-primary" href="https://github.com/jcubillosz/gnote-plus-plus/releases/latest">Download for Mac</a>
         </div>
-        <p class="fineprint">Version 1.3.1 (<a href="changelog/">what's new</a>). Requires macOS 13 or later on Apple silicon. Signed and notarized by Apple.</p>
+        <p class="fineprint">Version 1.4.0 (<a href="changelog/">what's new</a>). Requires macOS 13 or later on Apple silicon. Signed and notarized by Apple.</p>
       </div>
       <img class="pitch-logo" src="logo.png" width="240" height="240" alt="GNote++ logo: a black cat holding a sheet of paper with the GNote++ name">
     </div>
   </div>
   <div class="stage">
     <div class="wrap">
-      <img src="screenshots/markdown-mermaid.png" width="1600" height="1000" alt="GNote++ editing a Markdown file with live preview: a Mermaid flowchart, a tip alert, a task list and the document outline">
+      <img src="screenshots/markdown-mermaid.png" width="1600" height="970" alt="GNote++ editing a Markdown file with live preview: a Mermaid flowchart, a tip alert, a task list and the document outline">
       <p>Markdown source on the left, live preview on the right, outline in the sidebar.</p>
     </div>
   </div>
@@ -144,7 +144,8 @@
       </ul>
       <ul>
         <li><strong>Mermaid diagrams</strong>: flowcharts, sequence, class, state, Gantt, pie, mind maps. Start from templates; export as PNG or SVG.</li>
-        <li><strong>Formatting toolbar</strong>, lists that continue on Enter, table formatting.</li>
+        <li><strong>Formatting toolbar, compact or large</strong>: the large one works like a word processor, with labelled icons, dropdowns with live samples and a grid to pick the table size.</li>
+        <li>Lists that continue on Enter, table formatting, footnotes, collapsible sections; ⌘B, ⌘I, ⌘K.</li>
         <li><strong>Outline</strong> of headings in the sidebar.</li>
       </ul>
       <ul>
@@ -153,6 +154,10 @@
         <li><strong>Private by design</strong>: the preview runs no scripts and diagrams render offline.</li>
       </ul>
     </div>
+    <figure>
+      <img src="screenshots/markdown-light.png" width="1600" height="970" loading="lazy" alt="GNote++ in light mode with the large Markdown formatting toolbar, live preview and a Mermaid diagram">
+      <figcaption>The large Markdown toolbar, in light mode.</figcaption>
+    </figure>
   </section>
 
   <section aria-labelledby="code">
@@ -161,6 +166,7 @@
       <ul>
         <li><strong>Syntax highlighting</strong> for every language Notepad++ supports, with its themes in light and dark mode.</li>
         <li><strong>Multi-cursor and column editing</strong>, autocompletion, brace and tag matching.</li>
+        <li><strong>Auto-indent</strong> as you type and <strong>reindent</strong>; <strong>format JSON and XML</strong>.</li>
       </ul>
       <ul>
         <li>Bookmarks, code folding, change history, function list and a <strong>minimap</strong>.</li>
@@ -172,11 +178,15 @@
       </ul>
     </div>
     <figure>
-      <img src="screenshots/editor.png" width="1600" height="1000" loading="lazy" alt="GNote++ editing a Swift file with file tree, tabs, syntax highlighting, code folding and minimap">
+      <img src="screenshots/editor.png" width="1600" height="970" loading="lazy" alt="GNote++ editing a Swift file with file tree, tabs, syntax highlighting, code folding and minimap">
       <figcaption>Code editing with the file tree, folding and minimap.</figcaption>
     </figure>
     <figure>
-      <img src="screenshots/find-in-files.png" width="1600" height="1000" loading="lazy" alt="Find in files results grouped by file in the sidebar">
+      <img src="screenshots/highlights.png" width="1600" height="970" loading="lazy" alt="Find with highlight-all: every match marked in a Swift file, dark theme">
+      <figcaption>Find highlights every match, clearly visible in dark mode too.</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/find-in-files.png" width="1600" height="970" loading="lazy" alt="Find in files results grouped by file in the sidebar">
       <figcaption>Find in files searches the open folder and groups matches by file.</figcaption>
     </figure>
   </section>
@@ -217,7 +227,7 @@
   <section class="support" id="support" aria-labelledby="support-title">
     <h2 id="support-title">Support the project</h2>
     <p>GNote++ is free and built in spare time. If it saves you time, a donation helps keep it maintained and pays for the Apple developer account that lets it open without security warnings.</p>
-    <a class="button button-secondary" href="https://www.paypal.com/donate/?hosted_button_id=Q2E7M3ZS53NF8">Donate with PayPal</a>
+    <a class="button button-secondary" href="https://www.paypal.com/ncp/payment/ARSKH5DQC8WAL">Donate with PayPal</a>
   </section>
 
   <section class="build" aria-labelledby="build">

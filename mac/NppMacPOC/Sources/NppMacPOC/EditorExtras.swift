@@ -64,28 +64,34 @@ enum AutoClose {
         Int(UInt8(ascii: "\"")): Int(UInt8(ascii: "\"")),
         Int(UInt8(ascii: "'")): Int(UInt8(ascii: "'")),
     ]
+    private static let closers: Set<Int> = Set(pairs.values)
     private static let quotes: Set<Int> = [Int(UInt8(ascii: "\"")), Int(UInt8(ascii: "'"))]
     /// Cierres después de los cuales tiene sentido autocerrar ("f(|)" → "f((|))").
     private static let followers: Set<Int> = Set(")]},;:".utf8.map { Int($0) })
-
-    /// Último cierre insertado automáticamente: escribir ese mismo carácter justo ahí lo
-    /// "pisa" en vez de duplicarlo. Solo esos, no cualquier cierre que ya estuviera escrito.
-    private static var pending: (document: Int, position: Int, character: Int)?
 
     /// Las comillas solo en código: en prosa el apóstrofo ("don't", "l'eau") es frecuente.
     static func charAdded(_ character: Int, editor: ScintillaView, isCode: Bool) {
         guard call(editor, SCI_GETSELECTIONS) == 1 else { return }
         let caret = call(editor, SCI_GETCURRENTPOS)
-        let document = call(editor, SCI_GETDOCPOINTER)
         let next = call(editor, SCI_GETCHARAT, caret)
 
-        if let pending, pending.document == document, pending.position == caret,
-           pending.character == character, next == character {
+        // Texto escrito en MEDIO de un tramo marcado hereda la marca (RunStyles::InsertSpace); solo
+        // el inicio del tramo no hereda. Se limpia el carácter recién escrito para que uno tipeado
+        // a mano nunca se "pise" después.
+        if caret > 0 {
+            let current = call(editor, SCI_GETINDICATORCURRENT)
+            _ = call(editor, SCI_SETINDICATORCURRENT, INDICATOR_AUTO_CLOSE)
+            _ = call(editor, SCI_INDICATORCLEARRANGE, caret - 1, 1)
+            _ = call(editor, SCI_SETINDICATORCURRENT, current)
+        }
+
+        // Sobretipeo: solo sobre un cierre que insertó el autocierre (indicador 13), aunque se haya
+        // escrito texto en medio; un cierre tipeado a mano o venido del archivo no lo tiene.
+        if character == next, closers.contains(character),
+           call(editor, SCI_INDICATORVALUEAT, INDICATOR_AUTO_CLOSE, caret) != 0 {
             _ = call(editor, SCI_DELETERANGE, caret, 1)
-            self.pending = nil
             return
         }
-        pending = nil
 
         guard let closer = pairs[character] else { return }
         if quotes.contains(character) {
@@ -104,7 +110,13 @@ enum AutoClose {
             ScintillaView.directCall(editor, message: SCI_INSERTTEXT, wParam: uptr_t(caret),
                                      lParam: sptr_t(bitPattern: UInt(bitPattern: buffer.baseAddress)))
         }
-        pending = (document, caret, closer)
+        // Lo escrito justo antes del cierre (inicio del tramo) no hereda la marca; lo escrito en
+        // medio sí, y se limpia al entrar a charAdded.
+        let previousIndicator = call(editor, SCI_GETINDICATORCURRENT)
+        _ = call(editor, SCI_SETINDICATORCURRENT, INDICATOR_AUTO_CLOSE)
+        _ = call(editor, SCI_SETINDICATORVALUE, 1)
+        _ = call(editor, SCI_INDICATORFILLRANGE, caret, 1)
+        _ = call(editor, SCI_SETINDICATORCURRENT, previousIndicator)
     }
 
     private static func isWordByte(_ byte: Int) -> Bool {

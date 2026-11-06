@@ -7,7 +7,8 @@ struct FileStamp: Equatable {
     let size: Int
 
     static func of(_ url: URL) -> FileStamp? {
-        guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey, .isRegularFileKey]),
+        // resourceValues no sigue symlinks: sin resolver, un enlace daba isRegularFile == false.
+        guard let values = try? url.resolvingSymlinksInPath().resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey, .isRegularFileKey]),
               values.isRegularFile == true,
               let date = values.contentModificationDate else { return nil }
         return FileStamp(modificationDate: date, size: values.fileSize ?? 0)

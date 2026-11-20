@@ -20,6 +20,9 @@ enum SidebarTab: String {
 /// TabsViewModel — las vistas que dependen de él lo observan directo (@ObservedObject).
 final class OutlineViewModel: ObservableObject {
     @Published private(set) var items: [OutlineItem] = []
+    /// Documento Scintilla al que pertenecen `items` (el encabezado fijo no debe leer las líneas
+    /// de un esquema viejo en otro documento).
+    @Published private(set) var itemsDocument: sptr_t?
     enum Mode {
         case markdown
         /// Código con regla de functionList.
@@ -66,16 +69,17 @@ final class OutlineViewModel: ObservableObject {
         pendingRefresh?.cancel()
         pendingRefresh = nil
         generation += 1
+        let document = sptr_t(ScintillaView.directCall(editor, message: SCI_GETDOCPOINTER, wParam: 0, lParam: 0))
         guard let profile else {
-            setResult(.unsupported, [])
+            setResult(.unsupported, [], document)
             return
         }
         if profile.lexerName == "markdown" {
-            setResult(.markdown, parseMarkdownOutline(currentText(editor)))
+            setResult(.markdown, parseMarkdownOutline(currentText(editor)), document)
             return
         }
         guard let rule = FunctionList.rule(forLanguage: profile.languageName) else {
-            setResult(.unsupported, [])
+            setResult(.unsupported, [], document)
             return
         }
         let bytes = currentText(editor).utf8.map { CChar(bitPattern: $0) }
@@ -84,13 +88,14 @@ final class OutlineViewModel: ObservableObject {
             let parsed = rule.parse(bytes)
             DispatchQueue.main.async {
                 guard let self, self.generation == current else { return }
-                self.setResult(.code, parsed)
+                self.setResult(.code, parsed, document)
             }
         }
     }
 
-    private func setResult(_ mode: Mode, _ newItems: [OutlineItem]) {
+    private func setResult(_ mode: Mode, _ newItems: [OutlineItem], _ document: sptr_t) {
         if self.mode != mode { self.mode = mode }
+        if itemsDocument != document { itemsDocument = document }
         if newItems != items { items = newItems }
     }
 
@@ -218,4 +223,40 @@ private func cleanHeadingTitle(_ raw: String) -> String {
     }
     title = title.trimmingCharacters(in: .whitespaces)
     return title.isEmpty ? "—" : title
+}
+
+/// Clave de plegado de un ítem del esquema que sobrevive a ediciones que corren líneas:
+/// nivel + título + n-ésima aparición de ese par.
+func outlineFoldKeys(_ items: [OutlineItem]) -> [String] {
+    var seen: [String: Int] = [:]
+    return items.map { item in
+        let base = "\(item.level)|\(item.title)"
+        let n = seen[base, default: 0]
+        seen[base] = n + 1
+        return "\(base)|\(n)"
+    }
+}
+
+/// Índices visibles del esquema dados los ítems plegados (por clave) y un nivel máximo opcional.
+/// `hasChildren[i]` indica si el ítem i tiene hijos (el siguiente es de nivel mayor).
+func outlineVisibleRows(_ items: [OutlineItem], collapsed: Set<String>, maxLevel: Int?)
+    -> (visible: [Int], hasChildren: [Bool]) {
+    let keys = outlineFoldKeys(items)
+    var hasChildren = [Bool](repeating: false, count: items.count)
+    for i in items.indices where i + 1 < items.count && items[i + 1].level > items[i].level {
+        hasChildren[i] = true
+    }
+    var visible: [Int] = []
+    var hideBelow: Int?   // nivel del ancestro plegado más externo
+    for i in items.indices {
+        let level = items[i].level
+        if let h = hideBelow {
+            if level > h { continue }
+            hideBelow = nil
+        }
+        if let maxLevel, level > maxLevel { continue }
+        visible.append(i)
+        if hasChildren[i] && collapsed.contains(keys[i]) { hideBelow = level }
+    }
+    return (visible, hasChildren)
 }

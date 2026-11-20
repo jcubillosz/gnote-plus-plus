@@ -70,19 +70,35 @@ func goToLine(editor: ScintillaView) {
     guard let value = Int(text) else { return }
 
     if segmented.selectedSegment == 0 {
-        // El usuario escribe 1-based; SCI_GOTOLINE es 0-based.
-        let clampedLine = min(max(value, 1), Int(lineCount))
-        let targetLine = clampedLine - 1
-        _ = ScintillaView.directCall(editor, message: SCI_GOTOLINE, wParam: uptr_t(targetLine), lParam: 0)
-        _ = ScintillaView.directCall(editor, message: SCI_ENSUREVISIBLEENFORCEPOLICY, wParam: uptr_t(targetLine), lParam: 0)
-    } else {
-        let clampedPos = min(max(value, 0), Int(length))
-        _ = ScintillaView.directCall(editor, message: SCI_GOTOPOS, wParam: uptr_t(clampedPos), lParam: 0)
-        let targetLine = ScintillaView.directCall(editor, message: SCI_LINEFROMPOSITION, wParam: uptr_t(clampedPos), lParam: 0)
-        _ = ScintillaView.directCall(editor, message: SCI_ENSUREVISIBLEENFORCEPOLICY, wParam: uptr_t(targetLine), lParam: 0)
+        // El usuario escribe 1-based; goTo es 0-based.
+        goTo(line: min(max(value, 1), Int(lineCount)) - 1, column: nil, editor: editor)
+        return
     }
+    let clampedPos = min(max(value, 0), Int(length))
+    _ = ScintillaView.directCall(editor, message: SCI_GOTOPOS, wParam: uptr_t(clampedPos), lParam: 0)
+    let targetLine = ScintillaView.directCall(editor, message: SCI_LINEFROMPOSITION, wParam: uptr_t(clampedPos), lParam: 0)
+    _ = ScintillaView.directCall(editor, message: SCI_ENSUREVISIBLEENFORCEPOLICY, wParam: uptr_t(targetLine), lParam: 0)
     _ = ScintillaView.directCall(editor, message: SCI_SCROLLCARET, wParam: 0, lParam: 0)
 
+    editor.window?.makeFirstResponder(editor)
+}
+
+/// Va a `line` (0-based, del documento) y opcionalmente a `column` (0-based, en columnas de
+/// pantalla: un tab cuenta como varias), centrando la línea. Compartido con "Abrir rápido" (`:N:C`).
+func goTo(line: Int, column: Int?, editor: ScintillaView) {
+    let lineCount = Int(ScintillaView.directCall(editor, message: SCI_GETLINECOUNT, wParam: 0, lParam: 0))
+    let target = min(max(line, 0), max(lineCount - 1, 0))
+    // Despliega el bloque plegado que la contenga.
+    _ = ScintillaView.directCall(editor, message: SCI_ENSUREVISIBLEENFORCEPOLICY, wParam: uptr_t(target), lParam: 0)
+    let position = column.map {
+        // FINDCOLUMN se queda en el fin de línea si la columna lo pasa, y respeta UTF-8 y tabs.
+        ScintillaView.directCall(editor, message: SCI_FINDCOLUMN, wParam: uptr_t(target), lParam: sptr_t(max($0, 0)))
+    } ?? ScintillaView.directCall(editor, message: SCI_POSITIONFROMLINE, wParam: uptr_t(target), lParam: 0)
+    _ = ScintillaView.directCall(editor, message: SCI_GOTOPOS, wParam: uptr_t(max(position, 0)), lParam: 0)
+    // Con ajuste de línea o plegado, la línea del documento no es la de pantalla: se centra la de pantalla.
+    let visible = Int(ScintillaView.directCall(editor, message: SCI_VISIBLEFROMDOCLINE, wParam: uptr_t(target), lParam: 0))
+    let onScreen = Int(ScintillaView.directCall(editor, message: SCI_LINESONSCREEN, wParam: 0, lParam: 0))
+    _ = ScintillaView.directCall(editor, message: SCI_SETFIRSTVISIBLELINE, wParam: uptr_t(max(visible - onScreen / 2, 0)), lParam: 0)
     editor.window?.makeFirstResponder(editor)
 }
 

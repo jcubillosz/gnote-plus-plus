@@ -313,6 +313,10 @@ extension MarkdownPreviewViewModel: WKNavigationDelegate {
 /// un contenedor propio, el reparenting es explícito y ocurre en cada aparición.
 struct MarkdownPreviewView: NSViewRepresentable {
     @ObservedObject var preview: MarkdownPreviewViewModel
+    /// La vista previa Markdown y la HTML están superpuestas en el mismo pane: la inactiva se
+    /// oculta con isHidden porque el hitTest de AppKit ignora la opacidad, y si no la de arriba
+    /// (invisible) se llevaría clics y rueda. isHidden no reparenta el WKWebView.
+    var isActive = true
 
     func makeNSView(context: Context) -> NSView {
         // Contenedor por frame (mismo que el del editor), no Auto Layout: con constraints,
@@ -320,11 +324,13 @@ struct MarkdownPreviewView: NSViewRepresentable {
         // cambiaba de ancho al alternar el modo de vista.
         let container = SharedEditorContainer()
         adopt(preview.webView, into: container)
+        container.isHidden = !isActive
         return container
     }
 
     func updateNSView(_ container: NSView, context: Context) {
         adopt(preview.webView, into: container)
+        container.isHidden = !isActive
     }
 
     private func adopt(_ webView: WKWebView, into container: NSView) {

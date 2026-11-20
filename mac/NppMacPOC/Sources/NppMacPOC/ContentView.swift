@@ -12,6 +12,8 @@ struct ContentView: View {
     // Igual que find: hay un solo MarkdownPreviewViewModel, anidado en TabsViewModel,
     // y su objectWillChange no se reenvía al padre — ContentView se suscribe directo.
     @ObservedObject var preview: MarkdownPreviewViewModel
+    @ObservedObject var htmlPreview: HTMLPreviewViewModel
+    @ObservedObject var csvTable: CSVTableViewModel
     // Mismo motivo: SpellCheckViewModel es otro ObservableObject anidado — sin esto,
     // togglear "Revisar ortografía"/idioma desde el menú no dispararía onChange acá.
     @ObservedObject var spellCheck: SpellCheckViewModel
@@ -24,6 +26,8 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     // Colapsado al iniciar: sin carpeta abierta, el panel solo ocupa espacio vacío.
     @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
+    // @State y no @StateObject: ContentView no debe redibujarse con cada movimiento del caret.
+    @State private var breadcrumbCaret = BreadcrumbCaret()
     // Se incrementa al clickear "Apoyar el proyecto" desde la toolbar para
     // forzar que SwiftUI relea DonationPrompt.shouldShowInToolbar y oculte
     // el botón sin esperar otro evento de estado.
@@ -38,14 +42,20 @@ struct ContentView: View {
     // MarkdownPreview.scheduleRefresh/scheduleScrollSync.
     @State private var pendingSpellCheck: DispatchWorkItem?
     @State private var pendingSmartHighlight: DispatchWorkItem?
+    @State private var pendingCSSColors: DispatchWorkItem?
+    @State private var pendingGitGutter: DispatchWorkItem?
     /// Task 12: borde de acento mientras se arrastra algo de Finder sobre la ventana.
     @State private var isDropTargeted = false
+    /// Último previewModeKey visto (macOS 13: onChange no da el valor anterior).
+    @State private var lastPreviewModeKey: PreviewModeKey?
 
     init(tabs: TabsViewModel, fileTree: FileTreeViewModel, recentFiles: RecentPathsViewModel, recentFolders: RecentPathsViewModel, preferences: EditorPreferences) {
         self.tabs = tabs
         self.fileTree = fileTree
         self.find = tabs.find
         self.preview = tabs.preview
+        self.htmlPreview = tabs.htmlPreview
+        self.csvTable = tabs.csvTable
         self.spellCheck = tabs.spellCheck
         self.outline = tabs.outline
         self.recentFiles = recentFiles
@@ -77,6 +87,50 @@ struct ContentView: View {
         return ActiveDocumentKey(id: doc?.id, lexerName: doc?.languageProfile.lexerName, languageName: doc?.languageProfile.languageName)
     }
 
+    /// Lo que cambia el encabezado fijo además del scroll: esquema, tema, fuente y modo de vista.
+    private struct StickyHeaderKey: Equatable {
+        let enabled: Bool
+        let mode: MarkdownPreviewViewModel.PreviewMode
+        let items: [OutlineItem]
+        let documentID: UUID?
+        let itemsDocument: sptr_t?
+        let fontName: String
+        let fontSize: Double
+        let dark: Bool
+    }
+
+    private var stickyHeaderKey: StickyHeaderKey {
+        StickyHeaderKey(enabled: preferences.stickyScroll, mode: tabs.activePreviewMode, items: outline.items,
+                        documentID: tabs.activeDocument?.id, itemsDocument: outline.itemsDocument,
+                        fontName: preferences.fontName, fontSize: preferences.fontSize, dark: colorScheme == .dark)
+    }
+
+    private func refreshStickyHeader() {
+        // Tras el ciclo actual: el tema/fuente se aplican al editor en otros onChange del mismo pase.
+        DispatchQueue.main.async {
+            // Al cambiar de pestaña el esquema todavía es del documento anterior: sus líneas leídas
+            // en el documento nuevo darían texto ajeno, así que se oculta hasta que llegue el nuevo.
+            guard preferences.stickyScroll, tabs.activePreviewMode != .preview, let document = tabs.activeDocument,
+                  !outline.items.isEmpty, outline.itemsDocument == document.pointer else {
+                StickyHeaderView.shared.hide()
+                return
+            }
+            StickyHeaderView.shared.update(editor: tabs.editor, items: outline.items,
+                                           theme: tabs.currentTheme, fontName: preferences.fontName)
+        }
+    }
+
+    private struct PreviewModeKey: Equatable {
+        let document: ActiveDocumentKey
+        let mode: MarkdownPreviewViewModel.PreviewMode
+    }
+
+    /// El modo efectivo cambia también al cambiar de pestaña (cada HTML tiene el suyo); con el
+    /// documento en la clave, onChange(of: previewModeKey) distingue eso de un cambio de modo.
+    private var previewModeKey: PreviewModeKey {
+        PreviewModeKey(document: activeDocumentKey, mode: tabs.activePreviewMode)
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView(fileTree: fileTree, actions: actions, onOpenFile: { tabs.open(url: $0) }, onRename: { url, newName in
@@ -89,7 +143,9 @@ struct ContentView: View {
             outline: outline, statusBar: tabs.statusBar, onJumpToLine: { jumpToOutlineLine($0) },
             findInFiles: tabs.findInFiles,
             findOverrides: { unsavedActiveText() },
-            onOpenMatch: { url, line, byteStart, byteLength in openFindMatch(url: url, line: line, byteStart: byteStart, byteLength: byteLength) })
+            onOpenMatch: { url, line, byteStart, byteLength in openFindMatch(url: url, line: line, byteStart: byteStart, byteLength: byteLength) },
+            onOpenDocumentMatch: { id, line, byteStart, byteLength in openDocumentMatch(id: id, line: line, byteStart: byteStart, byteLength: byteLength) },
+            onReplaceInFiles: { tabs.confirmAndReplaceInFiles(rerun: { tabs.findInFiles.search(in: $0, overrides: unsavedActiveText()) }) })
         } detail: {
             VStack(spacing: 0) {
                 // Prioridad de layout: el editor es flexible y nunca debe comprimir la barra
@@ -102,14 +158,56 @@ struct ContentView: View {
                 TabBarView(tabs: tabs)
                     .layoutPriority(1)
                 Divider()
-                if tabs.activeDocument != nil {
-                    editorArea
+                if preferences.showBreadcrumbs, let document = tabs.activeDocument {
+                    BreadcrumbBar(outline: outline, caret: breadcrumbCaret, file: document.url,
+                                  fileName: document.displayName, root: fileTree.root?.url,
+                                  onRevealFolder: { folder in
+                                      columnVisibility = .all
+                                      fileTree.revealRequest = folder
+                                  },
+                                  onJumpToLine: { jumpToOutlineLine($0) })
+                        .layoutPriority(1)
+                        .onAppear { breadcrumbCaret.updateNow(editor: tabs.editor) }
+                        .onChange(of: document.id) { _ in breadcrumbCaret.updateNow(editor: tabs.editor) }
                     Divider()
-                    StatusBarView(statusBar: tabs.statusBar)
-                } else {
-                    Text(L("Abre un archivo para empezar"))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                ZStack {
+                    if tabs.activeDocument != nil {
+                        editorArea
+                    } else {
+                        Text(L("Abre un archivo para empezar"))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                // Paneles flotantes sobre el contenedor de AMBAS ramas: dentro de editorArea no
+                // existían sin pestañas (carpeta abierta, ninguna pestaña) y ⌘T/⇧⌘P quedaban
+                // "visibles" sin dibujarse ni poder cerrarse con Esc. Sobre el área entera y no sobre
+                // el editor: en solo-vista-previa el editor mide 0 pt y en dividida angosta se
+                // recortaban. Encima de la barra de búsqueda, que es overlay del editor.
+                .overlay(alignment: .top) {
+                    ClipboardHistoryPickerHost(
+                        history: tabs.clipboardHistory,
+                        onShown: { tabs.quickPanel.close(restoreFocus: false) },
+                        onPaste: { text in
+                            tabs.clipboardHistory.pickerVisible = false
+                            if let document = tabs.activeDocument, !document.isLocked {
+                                pasteFromHistory(text, editor: tabs.editor)
+                            }
+                            applyFocusForCurrentMode()
+                        },
+                        onClose: { restoreFocus in
+                            tabs.clipboardHistory.pickerVisible = false
+                            if restoreFocus { applyFocusForCurrentMode() }
+                        })
+                }
+                .overlay(alignment: .top) {
+                    QuickPanelHost(model: tabs.quickPanel, onShown: { tabs.clipboardHistory.pickerVisible = false },
+                                   onClose: { applyFocusForCurrentMode() })
+                }
+                if tabs.activeDocument != nil {
+                    Divider()
+                    StatusBarView(statusBar: tabs.statusBar, macros: tabs.macros)
                 }
             }
             // Cubre tab bar / status bar / el "abre un archivo" vacío. Sobre el área del
@@ -171,9 +269,9 @@ struct ContentView: View {
                 }
             }
 
-            if tabs.activeDocumentIsMarkdown {
+            if tabs.activeDocumentHasPreview {
                 ToolbarItemGroup {
-                    Picker(L("Modo de vista"), selection: $preview.mode) {
+                    Picker(L("Modo de vista"), selection: $tabs.activePreviewMode) {
                         Image(systemName: "doc.plaintext").tag(MarkdownPreviewViewModel.PreviewMode.editor)
                         Image(systemName: "rectangle.split.2x1").tag(MarkdownPreviewViewModel.PreviewMode.split)
                         Image(systemName: "doc.richtext").tag(MarkdownPreviewViewModel.PreviewMode.preview)
@@ -183,14 +281,16 @@ struct ContentView: View {
                     .help(L("Modo de vista"))
                     .frame(width: 120)
 
-                    Button {
-                        preview.syncScroll.toggle()
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down.square")
+                    // El scroll sincronizado es proporcional por líneas de Markdown; en HTML no aplica.
+                    if tabs.activeDocumentIsMarkdown {
+                        Button {
+                            preview.syncScroll.toggle()
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down.square")
+                        }
+                        .help(L("Sincronizar scroll"))
+                        .foregroundStyle(preview.syncScroll ? Color.accentColor : Color.primary)
                     }
-                    .help(L("Sincronizar scroll"))
-                    .foregroundStyle(preview.syncScroll ? Color.accentColor : Color.primary)
-
                 }
             }
         }
@@ -200,7 +300,9 @@ struct ContentView: View {
         }
         .onChange(of: preferences.showDocumentMap) { _ in
             DocumentMapView.applyMargin(to: tabs.editor, visible: preferences.showDocumentMap)
+            refreshStickyHeader()
         }
+        .onChange(of: stickyHeaderKey) { _ in refreshStickyHeader() }
         .onChange(of: colorScheme) { newValue in
             tabs.applyTheme(editorTheme(for: newValue))
             refreshPreview()
@@ -215,6 +317,15 @@ struct ContentView: View {
             scheduleSpellCheck()
             outline.refreshNow(editor: tabs.editor, profile: tabs.activeDocument?.languageProfile)
             scheduleSmartHighlight()
+            scheduleCSSColors()
+            RegexTesterPanel.shared.model.documentChanged()
+            // Al activar se vuelve a pedir el blob: HEAD pudo cambiar mientras estaba en el fondo.
+            if let document = tabs.activeDocument {
+                tabs.gitGutter.invalidate(document)
+                tabs.gitBlame.invalidate(document)
+            }
+            refreshGitGutterNow()
+            tabs.gitBlame.caretMoved(document: tabs.activeDocument, editor: tabs.editor)
         }
         .onChange(of: windowTitle) { _ in
             updateRepresentedURL()
@@ -234,19 +345,29 @@ struct ContentView: View {
             guard spellCheck.enabled else { return }
             scheduleSpellCheck()
         }
-        .onChange(of: preview.mode) { mode in
-            if mode == .editor {
+        .onChange(of: previewModeKey) { key in
+            let previous = lastPreviewModeKey
+            lastPreviewModeKey = key
+            // Cambio de pestaña o de lenguaje: lo atiende onChange(of: activeDocumentKey); repetirlo
+            // acá recargaría la página HTML (y su JS) dos veces.
+            guard previous?.document == key.document else { return }
+            if key.mode == .editor {
                 preview.cancelPendingRefresh()
                 preview.cancelPendingScrollSync()
+                htmlPreview.unload()
             } else {
                 refreshPreview()
             }
             applyFocusForCurrentMode()
         }
+        .sheet(isPresented: $tabs.showColumnEditor) {
+            ColumnEditorSheet(editor: tabs.editor) { tabs.showColumnEditor = false }
+        }
         .onAppear {
             tabs.applyTheme(editorTheme(for: colorScheme))
             preview.onJumpToSourceLine = { line in jumpToSourceLine(line) }
             MarkdownImages.installPasteMonitor(tabs: tabs)
+            TabKeyRouter.install(tabs: tabs)
             preview.onToggleTask = { line in
                 guard tabs.activeDocument?.isLocked == false,
                       MarkdownEditing.toggleTask(editor: tabs.editor, line: line - 1) else {
@@ -254,9 +375,12 @@ struct ContentView: View {
                     return
                 }
             }
+            lastPreviewModeKey = previewModeKey
             refreshPreview()
             applyFocusForCurrentMode()
             scheduleSpellCheck()
+            scheduleCSSColors()
+            refreshGitGutterNow()
             outline.refreshNow(editor: tabs.editor, profile: tabs.activeDocument?.languageProfile)
             deferPastCurrentLayoutPass { updateRepresentedURL() }
         }
@@ -270,21 +394,23 @@ struct ContentView: View {
     }
 
     /// Único punto que decide el first responder según el modo EFECTIVO (mode +
-    /// si el doc activo es Markdown). Se llama desde cada disparador relevante —
+    /// si el doc activo tiene vista previa: Markdown o HTML; sin documento, la ventana). Se llama desde cada disparador relevante —
     /// cambio de modo, cambio de pestaña y arranque — en vez de solo en el borde
     /// "entrando a .preview": ese borde se pierde en (1) arranque con .preview
     /// restaurado de UserDefaults (el editor puede robar el foco al crearse, antes
     /// de que este código corra), (2) cambiar de una pestaña MD a otra con el modo
-    /// ya en .preview (no hay onChange(of: preview.mode) porque el modo no cambió),
+    /// ya en .preview (onChange(of: previewModeKey) ignora los cambios de pestaña),
     /// (3) cambiar de una pestaña no-MD (modo efectivo .editor) a una MD con
-    /// preview.mode ya en .preview (tampoco dispara onChange(of: preview.mode)).
+    /// preview.mode ya en .preview (mismo motivo).
     /// Se difiere al próximo runloop porque en (1)/(2)/(3) ScintillaEditorView
     /// puede reclamar el foco de forma asíncrona al reparentar/crearse (ver su
     /// propio `DispatchQueue.main.async` en adopt(into:)) — sin este defer, esa
     /// llamada posterior le gana a esta y el foco vuelve al editor oculto.
     private func applyFocusForCurrentMode() {
-        let effectiveMode: MarkdownPreviewViewModel.PreviewMode =
-            tabs.activeDocumentIsMarkdown ? preview.mode : .editor
+        let hasDocument = tabs.activeDocument != nil
+        let isHTML = tabs.activeDocumentShowsHTMLPreview
+        let isTable = tabs.activeDocumentIsTable
+        let effectiveMode = tabs.activePreviewMode
         // deferPastCurrentLayoutPass, no DispatchQueue.main.async: cambiar de modo cambia el
         // frame/opacity del editor (mostrarlo u ocultarlo), lo que dispara un paso de
         // auto-layout de AppKit. makeFirstResponder programado con .async podía ejecutarse
@@ -292,8 +418,15 @@ struct ContentView: View {
         // ("no se puede pedir actualizar constraints mientras ya se está actualizando"),
         // crasheando la app al cambiar el modo de vista previa (bug real de QA manual).
         deferPastCurrentLayoutPass {
-            if effectiveMode == .preview {
-                preview.webView.window?.makeFirstResponder(preview.webView)
+            if !hasDocument {
+                // Sin pestañas el editor no está en la ventana: el foco vuelve a la ventana (los
+                // atajos de menú siguen andando) en vez de quedar en el panel flotante ya cerrado.
+                // mainWindow primero: con un panel flotante (colores, Buscar) al frente, keyWindow
+                // es ese panel y no la ventana del editor.
+                (NSApp.mainWindow ?? NSApp.keyWindow)?.makeFirstResponder(nil)
+            } else if effectiveMode == .preview {
+                let target: NSView = isTable ? csvTable.tableView : (isHTML ? htmlPreview.webView : preview.webView)
+                target.window?.makeFirstResponder(target)
             } else {
                 tabs.editor.window?.makeFirstResponder(tabs.editor)
             }
@@ -307,10 +440,9 @@ struct ContentView: View {
         // ramas destruye el NSViewRepresentable entero (no solo lo oculta) y obliga a
         // reparentar el ScintillaView/WKWebView compartidos. EditorPreviewSplit mantiene
         // ambos hijos siempre presentes y solo cambia sus anchos según el modo.
-        // Un documento no-Markdown se comporta siempre como .editor, aunque `preview.mode`
-        // (persistido, compartido entre pestañas) esté en .split/.preview de una pestaña MD.
-        let effectiveMode: MarkdownPreviewViewModel.PreviewMode =
-            tabs.activeDocumentIsMarkdown ? preview.mode : .editor
+        // Un documento sin vista previa (ni Markdown ni HTML) se comporta siempre como .editor,
+        // aunque `preview.mode` (persistido, de Markdown) esté en .split/.preview.
+        let effectiveMode = tabs.activePreviewMode
 
         EditorPreviewSplit(mode: effectiveMode) {
             HStack(spacing: 0) {
@@ -320,15 +452,23 @@ struct ContentView: View {
                     document: tabs.activeDocument,
                     spellCheck: spellCheck,
                     onContentChanged: {
+                        tabs.activeDocument?.backupPending = true
                         tabs.documentMap.refresh()
                         scheduleRefresh()
                         scheduleSpellCheck()
                         outline.scheduleRefresh(editor: tabs.editor, profile: tabs.activeDocument?.languageProfile)
+                        CSSColorPicker.shared.editorContentChanged()
+                        scheduleCSSColors()
+                        scheduleGitGutter()
+                        RegexTesterPanel.shared.model.documentChanged()
                     },
                     onScrolled: {
                         tabs.documentMap.refresh()
-                        preview.scheduleScrollSync(editor: tabs.editor)
+                        if preferences.stickyScroll { StickyHeaderView.shared.schedule { refreshStickyHeader() } }
+                        // Solo Markdown: con un HTML activo movería la preview Markdown oculta.
+                        if tabs.activeDocumentIsMarkdown { preview.scheduleScrollSync(editor: tabs.editor) }
                         scheduleSpellCheck()
+                        scheduleCSSColors()
                     },
                     onSavePointLeft: { tabs.setActiveDirty(true) },
                     onSavePointReached: { tabs.setActiveDirty(false) },
@@ -336,27 +476,21 @@ struct ContentView: View {
                     onSpellCheckAction: { recheckSpellingNow() },
                     onURIDropped: { handleDroppedURLs([$0]) },
                     onSelectionChanged: {
+                        SnippetSession.current?.reconcile()
                         BraceMatcher.updateBraces(editor: tabs.editor)
                         scheduleSmartHighlight()
+                        CSSColorPicker.shared.editorSelectionChanged()
+                        if preferences.showBreadcrumbs { breadcrumbCaret.schedule(editor: tabs.editor) }
+                        tabs.gitBlame.caretMoved(document: tabs.activeDocument, editor: tabs.editor)
                     },
                     onCharAdded: { character in
-                        guard let document = tabs.activeDocument, !document.isLocked else { return }
-                        if document.languageProfile.lexerName == "markdown" {
-                            MarkdownEditing.charAdded(character, editor: tabs.editor)
-                        }
-                        if preferences.autoIndent && document.languageProfile.lexerName != "markdown" {
-                            AutoIndent.charAdded(character, editor: tabs.editor,
-                                                 lexerName: document.languageProfile.lexerName,
-                                                 tabWidth: preferences.tabWidth)
-                        }
-                        if preferences.autoCloseBrackets {
-                            AutoClose.charAdded(character, editor: tabs.editor,
-                                                isCode: AutoComplete.isEnabled(for: document.languageProfile))
-                        }
-                        guard preferences.autoComplete,
-                              AutoComplete.isEnabled(for: document.languageProfile) else { return }
-                        AutoComplete.charAdded(character, editor: tabs.editor, document: document)
-                    }
+                        // Lo que estas funciones insertan no se graba en la macro: al reproducir se
+                        // re-dispara este mismo manejador tras cada carácter tecleado (Macros.swift).
+                        tabs.macros.noteCharAdded(character)
+                        tabs.macros.suppressing { tabs.handleCharAdded(character) }
+                        SnippetSession.current?.reconcile()
+                    },
+                    onMacroRecord: { tabs.macros.record(message: $0, wParam: $1, lParam: $2) }
                 )
                 .overlay(alignment: .trailing) {
                     // Franja acotada al borde derecho (minimapa + scroller legacy, ≤ 24 pt):
@@ -371,24 +505,89 @@ struct ContentView: View {
                     // Después del minimapa para quedar encima, y corrida a su izquierda: la barra
                     // se alinea a la derecha y sus botones caían debajo de la franja del minimapa.
                     if find.isVisible {
-                        FindBarView(editor: tabs.editor, find: find, isLocked: tabs.activeDocument?.isLocked == true)
+                        FindBarView(editor: tabs.editor, find: find, isLocked: tabs.activeDocument?.isLocked == true,
+                                    onFindAll: { findAll(allDocuments: $0) })
                             .padding(.trailing, preferences.showDocumentMap && tabs.activeIndex != nil ? DocumentMapView.width + 24 : 0)
                     }
                 }
             }
         } preview: {
-            MarkdownPreviewView(preview: preview)
+            // Las dos vistas siempre presentes (misma razón que EditorPreviewSplit): alternar con
+            // if/else entre una pestaña .md y una .html destruiría y reparentaría los WKWebView.
+            // La inactiva se oculta con isHidden (ver MarkdownPreviewView.isActive), no con opacidad.
+            ZStack {
+                MarkdownPreviewView(preview: preview, isActive: !tabs.activeDocumentIsHTML && !tabs.activeDocumentIsTable)
+                HTMLPreviewView(preview: htmlPreview, isActive: tabs.activeDocumentShowsHTMLPreview)
+                CSVTableView(model: csvTable, isActive: tabs.activeDocumentIsTable,
+                             isLocked: tabs.activeDocument?.isLocked == true,
+                             onSortDocument: { sortDocumentByColumn($0) },
+                             onJump: { jumpToTableCell(byteOffset: $0) })
+            }
         }
     }
 
     private func scheduleRefresh() {
-        guard preview.isVisible, let document = tabs.activeDocument, tabs.activeDocumentIsMarkdown else { return }
-        preview.scheduleRefresh(editor: tabs.editor, document: document, theme: markdownTheme(for: colorScheme))
+        guard tabs.activePreviewMode != .editor, let document = tabs.activeDocument else { return }
+        if tabs.activeDocumentIsTable {
+            csvTable.scheduleRefresh(editor: tabs.editor, document: document)
+        } else if tabs.activeDocumentIsHTML {
+            let editor = tabs.editor
+            htmlPreview.scheduleRefresh(text: currentText(editor), baseDirectory: document.url?.deletingLastPathComponent(),
+                                        documentID: document.id)
+        } else if tabs.activeDocumentIsMarkdown {
+            preview.scheduleRefresh(editor: tabs.editor, document: document, theme: markdownTheme(for: colorScheme))
+        }
     }
 
     private func refreshPreview() {
-        guard preview.isVisible, let document = tabs.activeDocument, tabs.activeDocumentIsMarkdown else { return }
+        let previewVisible = tabs.activePreviewMode != .editor
+        if previewVisible, let document = tabs.activeDocument, tabs.activeDocumentIsTable {
+            csvTable.refreshNow(editor: tabs.editor, document: document)
+        } else {
+            csvTable.clear()
+        }
+        if previewVisible, let document = tabs.activeDocument, tabs.activeDocumentShowsHTMLPreview {
+            htmlPreview.refreshNow(text: currentText(tabs.editor), baseDirectory: document.url?.deletingLastPathComponent(),
+                                   documentID: document.id)
+        } else {
+            htmlPreview.unload()
+        }
+        guard previewVisible, let document = tabs.activeDocument, tabs.activeDocumentIsMarkdown,
+              !tabs.activeDocumentIsTable else { return }
         preview.refreshNow(editor: tabs.editor, document: document, theme: markdownTheme(for: colorScheme))
+    }
+
+    /// "Ordenar documento por esta columna": reordena las filas crudas en una acción de deshacer.
+    private func sortDocumentByColumn(_ column: Int) {
+        guard let document = tabs.activeDocument, !document.isLocked else { NSSound.beep(); return }
+        let editor = tabs.editor
+        let text = currentText(editor)
+        let table = parseCSV(text, delimiter: csvTable.delimiter)
+        let skipHeader = csvTable.hasHeader
+        // Misma dirección que la vista: si el usuario la ve descendente, el documento queda igual.
+        let ascending = csvTable.sortColumn == column ? csvTable.sortAscending : true
+        guard let order = documentSortOrder(table, column: column, ascending: ascending, skipHeader: skipHeader) else {
+            NSSound.beep(); return
+        }
+        let eol = [0: "\r\n", 1: "\r", 2: "\n"][Int(ScintillaView.directCall(editor, message: SCI_GETEOLMODE, wParam: 0, lParam: 0))] ?? "\n"
+        let sorted = reorderedDocument(text, table: table, order: order, skipHeader: skipHeader, eol: eol)
+        guard sorted != text else { return }
+        _ = ScintillaView.directCall(editor, message: SCI_BEGINUNDOACTION, wParam: 0, lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_TARGETWHOLEDOCUMENT, wParam: 0, lParam: 0)
+        sorted.withCString { cstr in
+            _ = ScintillaView.directCall(editor, message: SCI_REPLACETARGET, wParam: uptr_t(strlen(cstr)),
+                                         lParam: sptr_t(bitPattern: UInt(bitPattern: cstr)))
+        }
+        _ = ScintillaView.directCall(editor, message: SCI_ENDUNDOACTION, wParam: 0, lParam: 0)
+        csvTable.refreshNow(editor: editor, document: document)
+    }
+
+    /// Doble clic en una celda: lleva el caret al inicio del campo (en solo-vista-previa pasa a dividida).
+    private func jumpToTableCell(byteOffset: Int) {
+        if tabs.activePreviewMode == .preview { tabs.activePreviewMode = .split }
+        _ = ScintillaView.directCall(tabs.editor, message: SCI_GOTOPOS, wParam: uptr_t(max(0, byteOffset)), lParam: 0)
+        _ = ScintillaView.directCall(tabs.editor, message: SCI_SCROLLCARET, wParam: 0, lParam: 0)
+        deferPastCurrentLayoutPass { tabs.editor.window?.makeFirstResponder(tabs.editor) }
     }
 
     /// Debounce de 500ms sobre SpellChecker.check(), agendado desde contenido/scroll/cambio
@@ -421,6 +620,33 @@ struct ContentView: View {
         }
         pendingSmartHighlight = item
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
+    }
+
+    /// Subrayados de color CSS (indicador 15) con el mismo debounce de 150ms que el smart
+    /// highlight: scroll y tipeo los disparan en ráfaga y el cálculo es del rango visible.
+    private func scheduleCSSColors() {
+        pendingCSSColors?.cancel()
+        let item = DispatchWorkItem { [tabs] in
+            guard let document = tabs.activeDocument else { return }
+            updateCSSColorIndicators(editor: tabs.editor, lexerName: document.languageProfile.lexerName)
+        }
+        pendingCSSColors = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
+    }
+
+    /// Margen de git: 500 ms tras la última edición (el diff es de todo el documento).
+    private func scheduleGitGutter() {
+        pendingGitGutter?.cancel()
+        let item = DispatchWorkItem { [tabs] in
+            tabs.gitGutter.refreshNow(document: tabs.activeDocument, editor: tabs.editor)
+        }
+        pendingGitGutter = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: item)
+    }
+
+    private func refreshGitGutterNow() {
+        pendingGitGutter?.cancel()
+        tabs.gitGutter.refreshNow(document: tabs.activeDocument, editor: tabs.editor)
     }
 
     /// Revisión inmediata (sin debounce) tras una acción del menú de corrector (Task 11):
@@ -460,7 +686,8 @@ struct ContentView: View {
             preview.cancelPendingScrollSync()
             preview.scrollToSourceLine(line + 1)
         }
-        if !isMarkdown || preview.mode != .preview {
+        // En solo-vista-previa (Markdown o HTML) el editor está oculto: no se le da el foco.
+        if tabs.activePreviewMode != .preview {
             tabs.editor.window?.makeFirstResponder(tabs.editor)
         }
     }
@@ -478,6 +705,35 @@ struct ContentView: View {
     /// reconstruye la vista del editor en el mismo pase.
     private func openFindMatch(url: URL, line: Int, byteStart: Int, byteLength: Int) {
         guard tabs.open(url: url) else { return }
+        selectMatchAfterTabSwitch(line: line, byteStart: byteStart, byteLength: byteLength)
+    }
+
+    /// Resultado de Buscar todo: activa la pestaña por id; si ya se cerró, avisa con un beep.
+    private func openDocumentMatch(id: UUID, line: Int, byteStart: Int, byteLength: Int) {
+        guard let index = tabs.documents.firstIndex(where: { $0.id == id }) else {
+            NSSound.beep()
+            return
+        }
+        if tabs.activeIndex != index { tabs.activate(at: index) }
+        selectMatchAfterTabSwitch(line: line, byteStart: byteStart, byteLength: byteLength)
+    }
+
+    /// Buscar todo desde la barra: muestra los resultados en la pestaña Buscar del sidebar.
+    private func findAll(allDocuments: Bool) {
+        let find = tabs.find
+        guard !find.findText.isEmpty else { return }
+        let targets: [Document] = allDocuments ? tabs.documents : (tabs.activeDocument.map { [$0] } ?? [])
+        let inputs = targets.map { (id: $0.id, title: $0.displayName, text: tabs.text(of: $0)) }
+        let scope = allDocuments ? L("Resultados en documentos abiertos")
+            : L("Resultados en \(tabs.activeDocument?.displayName ?? "")")
+        tabs.findInFiles.showResults(forDocuments: inputs, query: find.findText, matchCase: find.matchCase,
+                                     wholeWord: find.wholeWord, useRegex: find.useRegex,
+                                     scope: allDocuments ? .openDocuments : .document, scopeDescription: scope)
+        tabs.outline.sidebarTab = .search
+        tabs.outline.showRequestToken += 1
+    }
+
+    private func selectMatchAfterTabSwitch(line: Int, byteStart: Int, byteLength: Int) {
         DispatchQueue.main.async {
             let lineStart = Int(ScintillaView.directCall(tabs.editor, message: SCI_POSITIONFROMLINE, wParam: uptr_t(line), lParam: 0))
             guard lineStart >= 0 else { return }

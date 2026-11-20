@@ -47,6 +47,8 @@ struct ScintillaEditorView: NSViewRepresentable {
     var onSelectionChanged: (() -> Void)?
     /// Se escribió un carácter (SCN_CHARADDED): dispara el autocompletado.
     var onCharAdded: ((Int) -> Void)?
+    /// Paso de macro grabado (SCN_MACRORECORD, y cortar/copiar/pegar de Cocoa): mensaje, wParam, lParam.
+    var onMacroRecord: ((UInt32, Int, Int) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         let coordinator = Coordinator(statusBar: statusBar, editor: editor, document: document, spellCheck: spellCheck)
@@ -80,6 +82,7 @@ struct ScintillaEditorView: NSViewRepresentable {
         context.coordinator.onURIDropped = onURIDropped
         context.coordinator.onSelectionChanged = onSelectionChanged
         context.coordinator.onCharAdded = onCharAdded
+        context.coordinator.onMacroRecord = onMacroRecord
         if editor.delegate !== context.coordinator {
             editor.delegate = context.coordinator
             context.coordinator.installContextMenuProvider()
@@ -146,6 +149,8 @@ struct ScintillaEditorView: NSViewRepresentable {
         var onSelectionChanged: (() -> Void)?
         /// Avisa el carácter recién escrito (ver SCN_CHARADDED).
         var onCharAdded: ((Int) -> Void)?
+        /// Avisa un paso de macro (ver SCN_MACRORECORD).
+        var onMacroRecord: ((UInt32, Int, Int) -> Void)?
 
         init(statusBar: StatusBarViewModel, editor: ScintillaView?, document: Document? = nil, spellCheck: SpellCheckViewModel) {
             self.statusBar = statusBar
@@ -159,6 +164,7 @@ struct ScintillaEditorView: NSViewRepresentable {
             if editor?.delegate === self {
                 editor?.delegate = nil
                 (editor as? ContextMenuScintillaView)?.contextMenuProvider = nil
+                (editor as? ContextMenuScintillaView)?.onClipboardCommand = nil
             }
         }
 
@@ -167,6 +173,9 @@ struct ScintillaEditorView: NSViewRepresentable {
         func installContextMenuProvider() {
             (editor as? ContextMenuScintillaView)?.contextMenuProvider = { [weak self] event in
                 self?.spellContextMenu(for: event)
+            }
+            (editor as? ContextMenuScintillaView)?.onClipboardCommand = { [weak self] message in
+                self?.onMacroRecord?(message, 0, 0)
             }
         }
 
@@ -269,6 +278,10 @@ struct ScintillaEditorView: NSViewRepresentable {
                 }
             case SCN_CHARADDED:
                 onCharAdded?(Int(notification.pointee.ch))
+            case SCN_MACRORECORD:
+                onMacroRecord?(UInt32(bitPattern: notification.pointee.message),
+                               Int(bitPattern: notification.pointee.wParam),
+                               Int(notification.pointee.lParam))
             case SCN_URIDROPPED:
                 if let cString = notification.pointee.text {
                     let path = String(cString: cString)
@@ -325,8 +338,47 @@ final class SharedEditorContainer: NSView {
 /// propio, AppKit igual mostraba el nativo encima.
 final class ContextMenuScintillaView: ScintillaView {
     var contextMenuProvider: ((NSEvent) -> NSMenu?)?
+    /// Cortar/copiar/pegar del menú Edición o ⌘X/⌘C/⌘V (ver MacroContentView).
+    var onClipboardCommand: ((UInt32) -> Void)?
 
     override func menu(for event: NSEvent) -> NSMenu? {
         contextMenuProvider?(event) ?? super.menu(for: event)
+    }
+
+    override class func contentViewClass() -> AnyClass {
+        MacroContentView.self
+    }
+}
+
+/// Las acciones cut:/copy:/paste:/selectAll: de SCIContentView llaman directo al backend
+/// (ScintillaCocoa::Cut/Copy/Paste, Editor::SelectAll), sin pasar por WndProc, así que Scintilla
+/// no las notifica con SCN_MACRORECORD. Se graban acá a mano (el menú contextual nativo de
+/// Scintilla sí pasa por WndProc y no llega acá).
+final class MacroContentView: SCIContentView {
+    @objc func cut(_ sender: Any?) {
+        forward(#selector(cut(_:)), message: SCI_CUT, sender: sender)
+    }
+
+    @objc func copy(_ sender: Any?) {
+        forward(#selector(copy(_:)), message: SCI_COPY, sender: sender)
+    }
+
+    @objc func paste(_ sender: Any?) {
+        forward(#selector(paste(_:)), message: SCI_PASTE, sender: sender)
+    }
+
+    @objc override func selectAll(_ sender: Any?) {
+        forward(#selector(selectAll(_:)), message: SCI_SELECTALL, sender: sender)
+    }
+
+    /// SCIContentView no declara cut:/copy:/paste: en su header, así que `super.cut(_:)` no
+    /// compila: se llama a la implementación de la superclase por el runtime.
+    private func forward(_ selector: Selector, message: UInt32, sender: Any?) {
+        var ancestor = superview
+        while let view = ancestor, !(view is ContextMenuScintillaView) { ancestor = view.superview }
+        (ancestor as? ContextMenuScintillaView)?.onClipboardCommand?(message)
+        typealias Action = @convention(c) (AnyObject, Selector, Any?) -> Void
+        guard let imp = class_getMethodImplementation(SCIContentView.self, selector) else { return }
+        unsafeBitCast(imp, to: Action.self)(self, selector, sender)
     }
 }

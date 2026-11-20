@@ -275,13 +275,56 @@ func applyFormatter(editor: ScintillaView, transform: (String) throws -> String)
     }
     do {
         var result = try transform(text)
-        // "\r\n" es un solo Character en Swift: mirar el último unicodeScalar.
-        func endsWithEOL(_ t: String) -> Bool { t.unicodeScalars.last == "\n" || t.unicodeScalars.last == "\r" }
-        if end - start == text.utf8.count, endsWithEOL(text), !endsWithEOL(result) {
-            result += text.unicodeScalars.last == "\r" ? "\r" : (text.contains("\r\n") ? "\r\n" : "\n")
-        }
+        if end - start == text.utf8.count { result = keepingTrailingEOL(of: text, in: result) }
         replaceRange(editor: editor, start: start, end: end, with: result, reselect: false)
     } catch {
         presentAlert(L("Formatear"), detail: error.localizedDescription)
     }
+}
+
+// MARK: - Herramientas web
+
+/// Reemplaza la selección (o el documento sin selección) con `transform`; nil → alerta con `errorDetail`.
+/// `keepTrailingEOL`: sin selección, conservar el salto final del documento (timestamp ↔ fecha
+/// recortan blancos y se lo comerían).
+func webTransform(editor: ScintillaView, title: String, errorDetail: String, keepTrailingEOL: Bool = false,
+                  transform: (String) -> String?) {
+    var (start, end) = selectionRange(editor)
+    let hadSelection = end > start
+    let text: String
+    if hadSelection {
+        text = selectedText(editor) ?? ""
+    } else {
+        text = currentText(editor)
+        start = 0
+        end = Int(ScintillaView.directCall(editor, message: SCI_GETLENGTH, wParam: 0, lParam: 0))
+    }
+    guard var result = transform(text) else {
+        presentAlert(title, detail: errorDetail)
+        return
+    }
+    if keepTrailingEOL, !hadSelection { result = keepingTrailingEOL(of: text, in: result) }
+    // Sin cambios no se toca el documento: no queda una acción de deshacer vacía ni se marca sucio.
+    // Por bytes: == de String compara por equivalencia canónica (é precompuesta == e + acento).
+    guard !result.utf8.elementsEqual(text.utf8) else { return }
+    replaceRange(editor: editor, start: start, end: end, with: result, reselect: hadSelection)
+}
+
+/// Abre un documento nuevo con el JWT decodificado; la firma no se verifica.
+func decodeJWTToNewDocument(tabs: TabsViewModel) {
+    let editor = tabs.editor
+    let (start, end) = selectionRange(editor)
+    let token = end > start ? (selectedText(editor) ?? "") : currentText(editor)
+    guard let jwt = decodeJWT(token) else {
+        presentAlert(L("Decodificar JWT"), detail: L("El texto no es un JWT válido (tres partes base64url con encabezado y payload en JSON)."))
+        return
+    }
+    var out = "// " + L("Firma NO verificada") + "\n"
+    for claim in jwtTimeClaims(payload: jwt.payload, timeZone: .current) {
+        out += "// \(claim.name): \(claim.iso)\n"
+    }
+    out += "// header\n" + jwt.header + "\n// payload\n" + jwt.payload + "\n"
+    tabs.newDocument()
+    tabs.forceLanguage("json")
+    loadText(tabs.editor, out)
 }

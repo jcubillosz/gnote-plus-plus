@@ -301,6 +301,12 @@ private func profile(forLangName langName: String, keywords: [Int: String], them
     return LanguageProfile(lexerName: lexerName, keywords: remapped, styles: styles, comment: commentSyntax(forLangName: langName), languageName: langName)
 }
 
+/// Mismo criterio que `languageProfile(forExtension:)` sin armar estilos; apto para segundo plano.
+func languageName(forExtension ext: String) -> String? {
+    let lower = ext.lowercased()
+    return extensionToLangNameOverride[lower] ?? rawKeywords(forExtension: lower)?.0
+}
+
 func languageProfile(forExtension ext: String, theme: EditorTheme) -> LanguageProfile {
     let lower = ext.lowercased()
 

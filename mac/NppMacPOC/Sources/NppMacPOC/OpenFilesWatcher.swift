@@ -2,7 +2,7 @@ import Foundation
 
 /// Fecha de modificación + tamaño de un archivo en disco, registrados al abrir/guardar/recargar
 /// un documento. Si el archivo cambia por otro programa, el stamp de disco deja de coincidir.
-struct FileStamp: Equatable {
+struct FileStamp: Equatable, Codable {
     let modificationDate: Date
     let size: Int
 

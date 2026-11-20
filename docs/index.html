@@ -31,8 +31,8 @@
   "applicationCategory": "DeveloperApplication",
   "applicationSubCategory": "Markdown and code editor",
   "operatingSystem": "macOS 13 or later (Apple silicon)",
-  "softwareVersion": "1.4.0",
-  "dateModified": "2026-11-06",
+  "softwareVersion": "1.5.0",
+  "dateModified": "2026-11-20",
   "description": "Free, open-source Markdown and code editor for macOS built on Notepad++ source code: live Markdown preview with Mermaid diagrams for AI prompts, documentation and web content, plus syntax highlighting for every Notepad++ language.",
   "downloadUrl": "https://github.com/jcubillosz/gnote-plus-plus/releases/latest",
   "url": "https://jcubillosz.github.io/gnote-plus-plus/",
@@ -98,7 +98,7 @@
         <div class="actions">
           <a class="button button-primary" href="https://github.com/jcubillosz/gnote-plus-plus/releases/latest">Download for Mac</a>
         </div>
-        <p class="fineprint">Version 1.4.0 (<a href="changelog/">what's new</a>). Requires macOS 13 or later on Apple silicon. Signed and notarized by Apple.</p>
+        <p class="fineprint">Version 1.5.0 (<a href="changelog/">what's new</a>). Requires macOS 13 or later on Apple silicon. Signed and notarized by Apple.</p>
       </div>
       <img class="pitch-logo" src="logo.png" width="240" height="240" alt="GNote++ logo: a black cat holding a sheet of paper with the GNote++ name">
     </div>
@@ -188,6 +188,37 @@
     <figure>
       <img src="screenshots/find-in-files.png" width="1600" height="970" loading="lazy" alt="Find in files results grouped by file in the sidebar">
       <figcaption>Find in files searches the open folder and groups matches by file.</figcaption>
+    </figure>
+  </section>
+
+  <section aria-labelledby="dev">
+    <h2 id="dev">Tools for developers</h2>
+    <div class="groups">
+      <ul>
+        <li><strong>Compare files</strong> side by side with in-line changes: against git, the saved version or another tab.</li>
+        <li><strong>Git built in</strong>: changes in the gutter (click to revert a block), file status in the tree, inline blame.</li>
+        <li><strong>Command palette</strong> (⇧⌘P) and <strong>Quick Open</strong> (⌘T) with fuzzy search, <code>:line</code>, <code>@symbol</code> and project symbols.</li>
+      </ul>
+      <ul>
+        <li><strong>Replace in files</strong>, snippets with Tab, macros, clipboard history and continuous backup.</li>
+        <li><strong>Web</strong>: HTML preview, Emmet, tag auto-close and rename, CSS color swatches, JWT and URL tools.</li>
+      </ul>
+      <ul>
+        <li><code>.editorconfig</code>, external formatters (Prettier, Black, swift-format…), breadcrumbs and sticky scroll.</li>
+        <li><strong>Regex tester</strong> and a <strong>CSV/TSV table view</strong> with sortable columns.</li>
+      </ul>
+    </div>
+    <figure>
+      <img src="screenshots/compare.png" width="1600" height="844" loading="lazy" alt="Side-by-side file comparison with changed lines and in-line differences highlighted">
+      <figcaption>Compare two versions side by side; changes inside each line are highlighted.</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/command-palette.png" width="1600" height="990" loading="lazy" alt="Command palette listing matching menu commands with their keyboard shortcuts">
+      <figcaption>The command palette finds any menu command by name.</figcaption>
+    </figure>
+    <figure>
+      <img src="screenshots/csv-table.png" width="1600" height="990" loading="lazy" alt="CSV file shown as a table with aligned, sortable columns next to the source">
+      <figcaption>CSV and TSV files as a table, next to the source.</figcaption>
     </figure>
   </section>
 

@@ -28,13 +28,23 @@ final class EditorPreferences: ObservableObject {
     @Published var autoComplete: Bool { didSet { store(autoComplete, "editor.autoComplete") } }
     /// Minimapa a la derecha del editor (DocumentMap.swift).
     @Published var showDocumentMap: Bool { didSet { store(showDocumentMap, "editor.showDocumentMap") } }
+    /// Ruta de navegación (carpetas › archivo › símbolos) sobre el editor (Breadcrumbs.swift).
+    @Published var showBreadcrumbs: Bool { didSet { store(showBreadcrumbs, "editor.showBreadcrumbs") } }
     /// Barra de líneas modificadas/guardadas (EditorExtras.swift). El historial se registra
     /// siempre; esto solo muestra u oculta el margen.
     @Published var showChangeHistory: Bool { didSet { store(showChangeHistory, "editor.showChangeHistory") } }
+    /// Margen de cambios respecto de HEAD (GitGutter.swift).
+    @Published var showGitGutter: Bool { didSet { store(showGitGutter, "git.showGutter") } }
+    @Published var snippetsEnabled: Bool { didSet { store(snippetsEnabled, "snippets.enabled") } }
+    /// Encabezado fijo del símbolo actual sobre el editor (StickyHeader.swift).
+    @Published var stickyScroll: Bool { didSet { store(stickyScroll, "view.stickyScroll") } }
+    /// Autor y fecha del commit de la línea del cursor (GitBlame.swift).
+    @Published var showInlineBlame: Bool { didSet { store(showInlineBlame, "git.inlineBlame") } }
     @Published var autoCloseBrackets: Bool { didSet { store(autoCloseBrackets, "editor.autoCloseBrackets") } }
     /// Sangría automática al escribir (AutoIndent.swift).
     @Published var autoIndent: Bool { didSet { store(autoIndent, "editor.autoIndent") } }
     @Published var markdownLargeToolbar: Bool { didSet { store(markdownLargeToolbar, "markdown.largeToolbar") } }
+    @Published var backupEnabled: Bool { didSet { store(backupEnabled, "session.backup") } }
     /// Apagado por defecto, como en Notepad++: cambia líneas que el usuario no tocó.
     @Published var trimTrailingWhitespaceOnSave: Bool { didSet { store(trimTrailingWhitespaceOnSave, "editor.trimOnSave") } }
 
@@ -62,10 +72,16 @@ final class EditorPreferences: ObservableObject {
         zoom = (defaults.object(forKey: "editor.zoom") as? Int) ?? 0
         autoComplete = (defaults.object(forKey: "editor.autoComplete") as? Bool) ?? true
         showDocumentMap = (defaults.object(forKey: "editor.showDocumentMap") as? Bool) ?? true
+        showBreadcrumbs = (defaults.object(forKey: "editor.showBreadcrumbs") as? Bool) ?? true
         showChangeHistory = (defaults.object(forKey: "editor.showChangeHistory") as? Bool) ?? true
+        showGitGutter = (defaults.object(forKey: "git.showGutter") as? Bool) ?? true
+        snippetsEnabled = (defaults.object(forKey: "snippets.enabled") as? Bool) ?? true
+        stickyScroll = (defaults.object(forKey: "view.stickyScroll") as? Bool) ?? false
+        showInlineBlame = (defaults.object(forKey: "git.inlineBlame") as? Bool) ?? false
         autoCloseBrackets = (defaults.object(forKey: "editor.autoCloseBrackets") as? Bool) ?? true
         autoIndent = (defaults.object(forKey: "editor.autoIndent") as? Bool) ?? true
         markdownLargeToolbar = (defaults.object(forKey: "markdown.largeToolbar") as? Bool) ?? false
+        backupEnabled = (defaults.object(forKey: "session.backup") as? Bool) ?? true
         trimTrailingWhitespaceOnSave = (defaults.object(forKey: "editor.trimOnSave") as? Bool) ?? false
     }
 
@@ -80,9 +96,15 @@ final class EditorPreferences: ObservableObject {
         _ = ScintillaView.directCall(editor, message: SCI_STYLESETSIZE, wParam: uptr_t(STYLE_DEFAULT), lParam: sptr_t(Int(fontSize)))
     }
 
+    /// .editorconfig del documento activo: pisa tabs/indentación globales solo para él. Scintilla
+    /// guarda useTabs/tabWidth/indent por documento, así que se reaplica junto con las globales.
+    var activeEditorConfig: EditorConfigProperties?
+
     func applyEditingOptions(to editor: ScintillaView) {
-        _ = ScintillaView.directCall(editor, message: SCI_SETUSETABS, wParam: uptr_t(useTabs ? 1 : 0), lParam: 0)
-        _ = ScintillaView.directCall(editor, message: SCI_SETTABWIDTH, wParam: uptr_t(tabWidth), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETUSETABS, wParam: uptr_t(((activeEditorConfig?.indentStyle).map { $0 == "tab" } ?? useTabs) ? 1 : 0), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETTABWIDTH, wParam: uptr_t(activeEditorConfig?.tabWidth ?? tabWidth), lParam: 0)
+        // indent 0 = usar el ancho de tabulación; se reinicia siempre porque viaja con el documento.
+        _ = ScintillaView.directCall(editor, message: SCI_SETINDENT, wParam: uptr_t(activeEditorConfig?.indentSize ?? 0), lParam: 0)
         _ = ScintillaView.directCall(editor, message: SCI_SETWRAPMODE, wParam: uptr_t(wordWrap ? SC_WRAP_WORD : SC_WRAP_NONE), lParam: 0)
         _ = ScintillaView.directCall(editor, message: SCI_SETMARGINWIDTHN, wParam: 1, lParam: sptr_t(showLineNumbers ? 40 : 0))
         _ = ScintillaView.directCall(editor, message: SCI_SETVIEWWS, wParam: uptr_t(showWhitespace ? SCWS_VISIBLEALWAYS : SCWS_INVISIBLE), lParam: 0)

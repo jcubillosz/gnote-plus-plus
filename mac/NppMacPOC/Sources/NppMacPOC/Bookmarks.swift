@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Scintilla
 
 // Marcadores de línea y plegado de código (Notepad++: IDM_SEARCH_TOGGLE_BOOKMARK y el margen
@@ -97,4 +98,123 @@ func clearBookmarks(editor: ScintillaView) {
 
 func foldAll(editor: ScintillaView, expand: Bool) {
     _ = ScintillaView.directCall(editor, message: SCI_FOLDALL, wParam: uptr_t(expand ? SC_FOLDACTION_EXPAND : SC_FOLDACTION_CONTRACT), lParam: 0)
+}
+
+// MARK: - Operaciones sobre líneas con marcador
+
+/// Líneas a borrar, de mayor a menor para que borrar una no corra las posiciones de las demás.
+func linesToDelete(lineCount: Int, bookmarked: Set<Int>, deleteBookmarked: Bool) -> [Int] {
+    (0..<max(lineCount, 0)).reversed().filter { bookmarked.contains($0) == deleteBookmarked }
+}
+
+/// Cada línea seguida de su EOL (también la última): al pegar no se funde con lo que haya después.
+func joinedLines(_ lines: [String], eol: String) -> String {
+    lines.map { $0 + eol }.joined()
+}
+
+private func bmCall(_ editor: ScintillaView, _ m: UInt32, _ w: Int = 0, _ l: Int = 0) -> Int {
+    Int(ScintillaView.directCall(editor, message: m, wParam: uptr_t(bitPattern: w), lParam: sptr_t(l)))
+}
+
+private func bmLineCount(_ editor: ScintillaView) -> Int { bmCall(editor, SCI_GETLINECOUNT) }
+
+private func bmLineStart(_ editor: ScintillaView, _ line: Int) -> Int { bmCall(editor, SCI_POSITIONFROMLINE, line) }
+
+private func bmLineEnd(_ editor: ScintillaView, _ line: Int) -> Int { bmCall(editor, SCI_GETLINEENDPOSITION, line) }
+
+private func bmEOL(_ editor: ScintillaView) -> String {
+    switch bmCall(editor, SCI_GETEOLMODE) {
+    case 0: return "\r\n"
+    case 1: return "\r"
+    default: return "\n"
+    }
+}
+
+private func bmText(_ editor: ScintillaView, _ start: Int, _ end: Int) -> String {
+    guard end > start else { return "" }
+    _ = bmCall(editor, SCI_SETTARGETRANGE, start, end)
+    let length = bmCall(editor, SCI_GETTARGETTEXT)
+    guard length > 0 else { return "" }
+    var buffer = [UInt8](repeating: 0, count: length + 1)
+    buffer.withUnsafeMutableBytes { raw in
+        guard let base = raw.baseAddress else { return }
+        _ = ScintillaView.directCall(editor, message: SCI_GETTARGETTEXT, wParam: 0, lParam: sptr_t(bitPattern: UInt(bitPattern: base)))
+    }
+    return String(decoding: buffer.prefix(length), as: UTF8.self)
+}
+
+/// Líneas con marcador de la pestaña activa, ascendente.
+func bookmarkedLines(_ editor: ScintillaView) -> [Int] {
+    var result: [Int] = []
+    var line = bmCall(editor, SCI_MARKERNEXT, 0, 1 << MARKER_BOOKMARK)
+    while line >= 0 {
+        result.append(line)
+        line = bmCall(editor, SCI_MARKERNEXT, line + 1, 1 << MARKER_BOOKMARK)
+    }
+    return result
+}
+
+func copyBookmarkedLines(_ editor: ScintillaView) {
+    let lines = bookmarkedLines(editor)
+    guard !lines.isEmpty else { return }
+    let texts = lines.map { bmText(editor, bmLineStart(editor, $0), bmLineEnd(editor, $0)) }
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    pasteboard.setString(joinedLines(texts, eol: bmEOL(editor)), forType: .string)
+}
+
+func cutBookmarkedLines(_ editor: ScintillaView) {
+    guard !bookmarkedLines(editor).isEmpty else { return }
+    copyBookmarkedLines(editor)
+    deleteLines(editor, bookmarked: true)
+}
+
+/// Cada línea con marcador (sin su EOL) se reemplaza por el texto completo del portapapeles,
+/// como `pasteToMarkedLines` de Notepad++. De abajo hacia arriba para no mover las posiciones.
+func pasteReplacingBookmarkedLines(_ editor: ScintillaView) {
+    let lines = bookmarkedLines(editor)
+    guard !lines.isEmpty, let clip = NSPasteboard.general.string(forType: .string) else { return }
+    _ = bmCall(editor, SCI_BEGINUNDOACTION)
+    for line in lines.reversed() {
+        _ = bmCall(editor, SCI_SETTARGETRANGE, bmLineStart(editor, line), bmLineEnd(editor, line))
+        clip.withCString { cstr in
+            _ = ScintillaView.directCall(editor, message: SCI_REPLACETARGET, wParam: uptr_t(clip.utf8.count),
+                                         lParam: sptr_t(bitPattern: UInt(bitPattern: cstr)))
+        }
+    }
+    _ = bmCall(editor, SCI_ENDUNDOACTION)
+}
+
+/// Borra las líneas con (o sin) marcador. Una línea es [inicio, inicio de la siguiente); la última,
+/// si no termina en EOL, se lleva el EOL que la precede para no dejar la anterior pegada o un EOL suelto.
+func deleteLines(_ editor: ScintillaView, bookmarked: Bool) {
+    let count = bmLineCount(editor)
+    let docLength = bmCall(editor, SCI_GETLENGTH)
+    let marked = Set(bookmarkedLines(editor))
+    var targets = linesToDelete(lineCount: count, bookmarked: marked, deleteBookmarked: bookmarked)
+    // La línea final vacía (el documento termina en EOL) no es una línea real: no hay nada que borrar.
+    if let last = targets.first, last == count - 1, last > 0, bmLineStart(editor, last) == docLength {
+        targets.removeFirst()
+    }
+    guard !targets.isEmpty else { return }
+    _ = bmCall(editor, SCI_BEGINUNDOACTION)
+    for line in targets {
+        var start = bmLineStart(editor, line)
+        var end = line + 1 < bmLineCount(editor) ? bmLineStart(editor, line + 1) : bmCall(editor, SCI_GETLENGTH)
+        if line + 1 >= bmLineCount(editor), line > 0 { start = bmLineEnd(editor, line - 1) }
+        if end < start { end = start }
+        _ = bmCall(editor, SCI_DELETERANGE, start, end - start)
+    }
+    _ = bmCall(editor, SCI_ENDUNDOACTION)
+}
+
+func invertBookmarks(_ editor: ScintillaView) {
+    let mask = 1 << MARKER_BOOKMARK
+    for line in 0..<bmLineCount(editor) {
+        if bmCall(editor, SCI_MARKERGET, line) & mask != 0 {
+            _ = bmCall(editor, SCI_MARKERDELETE, line, MARKER_BOOKMARK)
+        } else {
+            _ = bmCall(editor, SCI_MARKERADD, line, MARKER_BOOKMARK)
+        }
+    }
 }

@@ -92,6 +92,8 @@ struct TabBarView: View {
                 tabs.saveActive()
             }
         }
+        Button(L("Comparar con la activa")) { tabs.compareActive(with: document.id) }
+            .disabled(document === tabs.activeDocument || tabs.activeDocument == nil)
         Divider()
         Button(L("Copiar ruta completa")) { copyToPasteboard(url?.path) }
             .disabled(url == nil)

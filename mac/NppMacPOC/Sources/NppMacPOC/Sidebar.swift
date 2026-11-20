@@ -22,6 +22,8 @@ struct SidebarView: View {
     /// Texto actual de documentos abiertos con cambios sin guardar (Buscar en archivos).
     let findOverrides: () -> [URL: String]
     let onOpenMatch: (URL, Int, Int, Int) -> Void
+    let onOpenDocumentMatch: (UUID, Int, Int, Int) -> Void
+    let onReplaceInFiles: () -> Void
     @State private var hoveredID: URL?
     @State private var renamingID: URL?
     /// Fila sobre la que se está arrastrando algo (resaltada como destino).
@@ -48,12 +50,16 @@ struct SidebarView: View {
             case .outline:
                 OutlineSectionView(outline: outline, statusBar: statusBar, onJumpToLine: onJumpToLine)
             case .search:
-                FindInFilesView(model: findInFiles, root: fileTree.root?.url, overrides: findOverrides, onOpenMatch: onOpenMatch)
+                FindInFilesView(model: findInFiles, root: fileTree.root?.url, overrides: findOverrides, onOpenMatch: onOpenMatch, onOpenDocumentMatch: onOpenDocumentMatch, onReplaceAll: onReplaceInFiles)
             }
         }
         // pendingRenameURL es la señal de Task 6 (crear archivo/carpeta nuevo) para
         // arrancar directo en modo rename en esa fila; se limpia acá una vez consumida.
         // Vive fuera de filesPane para no perderse si el sidebar está en la pestaña Esquema.
+        .onChange(of: fileTree.revealRequest) { _ in consumeRevealRequest() }
+        // Con el sidebar colapsado la petición llega antes de montar la vista y onChange no corre:
+        // sin consumirla acá queda pegada y la misma carpeta no vuelve a disparar el cambio.
+        .onAppear { consumeRevealRequest() }
         .onChange(of: fileTree.pendingRenameURL) { pending in
             guard let pending else { return }
             outline.sidebarTab = .files
@@ -163,7 +169,7 @@ struct SidebarView: View {
                         }
                     }
             } else {
-                Label(node.name, systemImage: node.isDirectory ? "folder" : "doc.text")
+                FileTreeRowLabel(node: node, gitStatus: fileTree.gitStatus)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -263,6 +269,19 @@ struct SidebarView: View {
         if onMove(url, folder) != nil { fileTree.refresh() }
     }
 
+    private func consumeRevealRequest() {
+        guard let request = fileTree.revealRequest else { return }
+        outline.sidebarTab = .files
+        if let rootPath = fileTree.root?.url.standardizedFileURL.path {
+            var folder = request
+            while folder.standardizedFileURL.path.hasPrefix(rootPath + "/") {
+                expandedFolders.insert(folder)
+                folder = folder.deletingLastPathComponent()
+            }
+        }
+        fileTree.revealRequest = nil
+    }
+
     private func beginRename(for url: URL) {
         // Un archivo/carpeta recién creado dentro de una carpeta plegada tiene que verse para
         // editar su nombre: se despliegan sus carpetas ancestro.
@@ -319,6 +338,52 @@ struct SidebarView: View {
     }
 }
 
+/// Vista propia para observar `GitStatusModel` directamente: anidado en FileTreeViewModel
+/// no reenvía su objectWillChange.
+private struct FileTreeRowLabel: View {
+    let node: FileNode
+    @ObservedObject var gitStatus: GitStatusModel
+
+    var body: some View {
+        if node.isDirectory {
+            HStack(spacing: 4) {
+                Label(node.name, systemImage: "folder")
+                if gitStatus.folderHasChanges(node.url) {
+                    Text("•").foregroundStyle(.secondary).help(L("Contiene cambios de git"))
+                }
+            }
+        } else {
+            // Sin estado no se fija color: así la fila seleccionada conserva su texto invertido.
+            if let status = gitStatus.status(for: node.url) {
+                Label(node.name, systemImage: "doc.text")
+                    .foregroundStyle(Self.color(status))
+                    .help(Self.legend(status))
+            } else {
+                Label(node.name, systemImage: "doc.text")
+            }
+        }
+    }
+
+    private static func color(_ status: GitFileStatus) -> Color {
+        switch status {
+        case .modified: return .blue
+        case .added, .untracked: return .green
+        case .conflicted: return .red
+        case .deleted: return .primary
+        }
+    }
+
+    private static func legend(_ status: GitFileStatus) -> String {
+        switch status {
+        case .modified: return L("Git: modificado")
+        case .added: return L("Git: agregado")
+        case .untracked: return L("Git: sin rastrear")
+        case .conflicted: return L("Git: en conflicto")
+        case .deleted: return ""
+        }
+    }
+}
+
 /// Pestaña "Esquema": títulos del documento Markdown activo, indentados por nivel, con la
 /// sección que contiene al caret resaltada.
 private struct OutlineSectionView: View {
@@ -326,6 +391,9 @@ private struct OutlineSectionView: View {
     @ObservedObject var statusBar: StatusBarViewModel
     let onJumpToLine: (Int) -> Void
     @State private var hoveredLine: Int?
+    @State private var collapsed: Set<String> = []
+    /// nil = todos los niveles.
+    @State private var maxLevel: Int?
 
     var body: some View {
         if outline.mode == .unsupported || outline.items.isEmpty {
@@ -337,10 +405,17 @@ private struct OutlineSectionView: View {
                 .padding()
         } else {
             let current = outline.currentIndex(forLine: statusBar.line - 1)
+            let keys = outlineFoldKeys(outline.items)
+            let rows = outlineVisibleRows(outline.items, collapsed: collapsed, maxLevel: maxLevel)
+            VStack(spacing: 0) {
+                levelBar(keys: keys, hasChildren: rows.hasChildren)
+                Divider()
             ScrollViewReader { proxy in
                 List {
-                    ForEach(Array(outline.items.enumerated()), id: \.element.id) { index, item in
-                        row(item, isCurrent: index == current)
+                    ForEach(rows.visible, id: \.self) { index in
+                        let item = outline.items[index]
+                        row(item, isCurrent: index == current,
+                            foldKey: rows.hasChildren[index] ? keys[index] : nil)
                             .id(item.id)
                     }
                 }
@@ -350,7 +425,36 @@ private struct OutlineSectionView: View {
                     proxy.scrollTo(outline.items[newValue].id)
                 }
             }
+            }
         }
+    }
+
+    /// Plegar/desplegar todo y "mostrar hasta el nivel N".
+    private func levelBar(keys: [String], hasChildren: [Bool]) -> some View {
+        let levels = Array(Set(outline.items.map(\.level))).sorted()
+        return HStack(spacing: 8) {
+            Button {
+                collapsed = Set(keys.indices.filter { hasChildren[$0] }.map { keys[$0] })
+                maxLevel = nil
+            } label: { Image(systemName: "chevron.up.chevron.down") }
+                .help(L("Plegar todo"))
+            Button { collapsed = []; maxLevel = nil } label: { Image(systemName: "list.bullet.indent") }
+                .help(L("Desplegar todo"))
+            Spacer()
+            Menu {
+                Button(L("Todos los niveles")) { maxLevel = nil; collapsed = [] }
+                ForEach(levels, id: \.self) { level in
+                    Button(L("Hasta el nivel \(level)")) { maxLevel = level; collapsed = [] }
+                }
+            } label: {
+                Text(maxLevel.map { L("Nivel \($0)") } ?? L("Todos los niveles")).font(.caption)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
     }
 
     private var emptyMessage: String {
@@ -361,12 +465,26 @@ private struct OutlineSectionView: View {
         }
     }
 
-    private func row(_ item: OutlineItem, isCurrent: Bool) -> some View {
-        Text(item.title)
+    private func row(_ item: OutlineItem, isCurrent: Bool, foldKey: String?) -> some View {
+        HStack(spacing: 2) {
+            if let foldKey {
+                Button {
+                    if collapsed.contains(foldKey) { collapsed.remove(foldKey) } else { collapsed.insert(foldKey) }
+                } label: {
+                    Image(systemName: collapsed.contains(foldKey) ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
+                        .frame(width: 12)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Spacer().frame(width: 12)
+            }
+            Text(item.title)
             .font(item.level == 1 ? .body.weight(.semibold) : .body)
             .foregroundStyle(item.level > 2 ? .secondary : .primary)
             .lineLimit(1)
             .truncationMode(.tail)
+        }
             .padding(.leading, CGFloat(item.level - 1) * 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 1)

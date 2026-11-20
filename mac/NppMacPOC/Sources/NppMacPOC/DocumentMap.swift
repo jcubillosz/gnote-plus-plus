@@ -86,6 +86,8 @@ final class DocumentMapView: NSView {
             _ = call(map, SCI_SETMARGINWIDTHN, margin, 0)
         }
         _ = call(map, SCI_SETVSCROLLBAR, 0)
+        // Comparte el documento del editor: el blame en línea no debe verse en el minimapa.
+        _ = call(map, SCI_EOLANNOTATIONSETVISIBLE, EOLANNOTATION_HIDDEN)
         _ = call(map, SCI_SETHSCROLLBAR, 0)
         _ = call(map, SCI_SETCARETSTYLE, CARETSTYLE_INVISIBLE)
         _ = call(map, SCI_SETCARETLINEVISIBLE, 0)
@@ -93,6 +95,16 @@ final class DocumentMapView: NSView {
         _ = call(map, SCI_SETZOOM, -10)
         // El indicador del autocierre es del documento compartido: sin esto se dibujaría subrayado.
         _ = call(map, SCI_INDICSETSTYLE, INDICATOR_AUTO_CLOSE, INDIC_HIDDEN)
+        // Los markers de git también son del documento: sin margen que los muestre, Scintilla
+        // pintaría la línea entera con su color.
+        for marker in [MARKER_GIT_ADDED, MARKER_GIT_MODIFIED, MARKER_GIT_DELETED] {
+            _ = call(map, SCI_MARKERDEFINE, marker, SC_MARK_EMPTY)
+        }
+        _ = call(map, SCI_INDICSETSTYLE, INDICATOR_MARK, INDIC_HIDDEN)
+        _ = call(map, SCI_INDICSETSTYLE, INDICATOR_CSS_COLOR, INDIC_HIDDEN)
+        _ = call(map, SCI_INDICSETSTYLE, INDICATOR_SNIPPET_FIELD, INDIC_HIDDEN)
+        _ = call(map, SCI_INDICSETSTYLE, INDICATOR_REGEX_TEST, INDIC_HIDDEN)
+        _ = call(map, SCI_INDICSETSTYLE, INDICATOR_REGEX_GROUP, INDIC_HIDDEN)
     }
 
     /// Definiciones de estilo de la minimapa: las mismas que applyLanguage/applyGlobalStyle

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GNote++ release notes — what's new in each version</title>
-<meta name="description" content="Release notes for GNote++, the free Markdown and code editor for macOS: what changed in each version, from 1.0 to 1.4.0.">
+<meta name="description" content="Release notes for GNote++, the free Markdown and code editor for macOS: what changed in each version, from 1.0 to 1.5.0.">
 <link rel="canonical" href="https://jcubillosz.github.io/gnote-plus-plus/changelog/">
 <link rel="alternate" hreflang="en" href="https://jcubillosz.github.io/gnote-plus-plus/changelog/">
 <link rel="alternate" hreflang="es" href="https://jcubillosz.github.io/gnote-plus-plus/es/changelog/">
@@ -34,7 +34,7 @@
     </div>
     <div class="page-head">
       <h1>What's new</h1>
-      <p class="lede">Every GNote++ release, newest first. The current version is 1.4.0.</p>
+      <p class="lede">Every GNote++ release, newest first. The current version is 1.5.0.</p>
       <div class="actions">
         <a class="button button-primary" href="https://github.com/jcubillosz/gnote-plus-plus/releases/latest">Download for Mac</a>
       </div>
@@ -43,6 +43,24 @@
 </header>
 
 <main class="wrap changelog">
+  <article class="release" id="v1-5-0">
+    <h2><a href="#v1-5-0">1.5.0</a></h2>
+    <p class="release-date"><time datetime="2026-11-20">2026-11-20</time></p>
+    <ul>
+      <li><strong>Compare files</strong> side by side, with in-line change highlights and synced scrolling: against the last git commit (⌃⌘K), the saved version (⌃⇧⌘K) or another tab.</li>
+      <li><strong>Built-in git</strong>: added, modified and deleted lines in the gutter (click to revert a block), file status in the file tree and inline blame (⌃⌘L). Never triggers the command line tools install prompt.</li>
+      <li><strong>Command palette</strong> (⇧⌘P) with every menu command, and <strong>Quick Open</strong> (⌘T) with fuzzy search over open, recent and project files; <code>:line</code> and <code>@symbol</code> to jump, <code>#</code> for project-wide symbols.</li>
+      <li><strong>Replace in files</strong> (⇧⌘H) with a preview count; <strong>find all</strong> and <strong>mark</strong> matches.</li>
+      <li><strong>Code snippets</strong> that expand with Tab, with placeholder fields, and built-in examples for Swift, JS/TS, Python, HTML and Markdown (⌃⌘I).</li>
+      <li><strong>Web tools</strong>: HTML live preview, auto-close and rename of tags, Emmet abbreviations (Tab), CSS color swatches with a color picker, and URL, HTML entities, JWT and timestamp tools.</li>
+      <li><strong>For developers</strong>: <code>.editorconfig</code> support, external formatters (Prettier, Black, swift-format…, ⌥⇧⌘F), symbol breadcrumbs above the editor and sticky scroll that keeps the current function in view.</li>
+      <li><strong>Live regular expression tester</strong> (⌃⌘X) with groups and a warning for slow patterns.</li>
+      <li><strong>CSV/TSV table view</strong> (⌃⌘T): aligned columns, sort and copy columns, or sort the file by a column.</li>
+      <li><strong>Macros</strong> (record and play back), <strong>column editor</strong> (⌥⌘C), <strong>clipboard history</strong> (⌘⇧V) and <strong>continuous backup</strong>: unsaved changes survive even if the app quits.</li>
+      <li><strong>Collapsible outline</strong>: fold each section, collapse or expand all, and show up to a heading level.</li>
+      <li>Fixes: the app could hang on launch while restoring the session; the find bar slid under the sidebar in narrow windows.</li>
+    </ul>
+  </article>
   <article class="release" id="v1-4-0">
     <h2><a href="#v1-4-0">1.4.0</a></h2>
     <p class="release-date"><time datetime="2026-11-06">2026-11-06</time></p>

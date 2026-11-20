@@ -68,6 +68,19 @@ struct PreferencesView: View {
                     Text(L("Columna: \(preferences.edgeColumn)"))
                 }
             }
+            Section(L("Sesión")) {
+                Toggle(L("Respaldar cambios sin guardar (salir sin preguntar)"), isOn: Binding(
+                    get: { preferences.backupEnabled },
+                    set: {
+                        preferences.backupEnabled = $0
+                        SessionBackup.preferenceChanged(enabled: $0, tabs: tabs)
+                    }
+                ))
+                Text(L("Guarda una copia de los documentos sin guardar cada pocos segundos y los recupera al volver a abrir GNote++."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(20)
         .frame(width: 360)

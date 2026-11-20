@@ -114,6 +114,9 @@ extension TabsViewModel {
         _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
         restoreViewState(of: document)
         document.diskStamp = FileStamp.of(url)
+        // Un checkout cambia el archivo y también HEAD: la base vieja ya no sirve.
+        gitGutter.invalidate(document)
+        gitBlame.invalidate(document)
         document.isDirty = false
         document.needsReload = false
         document.pendingExternalConflict = false

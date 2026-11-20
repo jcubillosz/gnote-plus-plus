@@ -36,16 +36,29 @@ final class FileTreeViewModel: ObservableObject {
     /// consume y limpia en ambos caminos; nil el resto del tiempo, y nunca se usa para
     /// carpetas (una carpeta no se "abre").
     @Published var createdFileAwaitingOpen: URL?
+    /// Carpeta a mostrar en el árbol (ruta de navegación): el Sidebar la despliega y la limpia.
+    @Published var revealRequest: URL?
     private var watcher: DirectoryWatcher?
+    let gitStatus = GitStatusModel()
+    /// Índice de "Abrir rápido" (vive en TabsViewModel); se conecta desde la ventana principal
+    /// antes de restaurar la sesión, pero por las dudas se indexa la raíz que ya hubiera.
+    weak var fileIndex: FileIndex? {
+        didSet { if fileIndex !== oldValue, let root { fileIndex?.reindex(root: root.url) } }
+    }
 
     func openFolder(_ url: URL) {
         root = FileNode(url: url, isDirectory: true)
+        fileIndex?.reindex(root: url)
         watcher?.stop()
+        gitStatus.setFolder(url)
         // `[weak self]` porque el watcher vive en una CFRunLoop/dispatch queue, no atado
         // al ciclo de vida normal de SwiftUI — sin esto, un refresh tardío podría llegar
         // después de que el view model ya no exista.
         watcher = DirectoryWatcher(url: url) { [weak self] in
             self?.refresh()
+            // El watcher no informa rutas: cualquier evento (incluido .git/) refresca con debounce.
+            self?.gitStatus.scheduleRefresh()
+            self?.fileIndex?.reindex(root: url, debounced: true)
         }
     }
 

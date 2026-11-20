@@ -13,6 +13,8 @@ final class StatusBarViewModel: ObservableObject {
     /// muestra como tooltip; nil cuando uchardet acertó sin ayuda.
     @Published var encodingNote: String?
     @Published var eol: String = EOLMode.lf.displayName
+    /// Tooltip del indicador "EC" (propiedades y archivos .editorconfig); nil = no hay ninguno.
+    @Published var editorConfigInfo: String?
     weak var editorRef: ScintillaView?
 
     func reset() {
@@ -25,5 +27,6 @@ final class StatusBarViewModel: ObservableObject {
         encoding = "UTF-8"
         encodingNote = nil
         eol = EOLMode.lf.displayName
+        editorConfigInfo = nil
     }
 }

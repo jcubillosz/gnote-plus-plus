@@ -83,6 +83,7 @@ let SCFIND_WHOLEWORD: Int = 0x2
 let SCFIND_MATCHCASE: Int = 0x4
 let SCFIND_REGEXP: Int = 0x00200000
 let SCFIND_CXX11REGEX: Int = 0x00800000
+let INDIC_BOX: Int = 6
 let INDIC_STRAIGHTBOX: Int = 8
 /// Flag de SCNotification.updated: el cambio de UI incluyó cambio de contenido (no solo
 /// caret/scroll/selección). Usado para filtrar cuándo refrescar la preview de Markdown.
@@ -90,6 +91,7 @@ let SC_UPDATE_CONTENT: Int = 0x1
 /// Flag de SCNotification.updated: cambió la posición de scroll vertical. Usado para
 /// sincronizar el scroll de la vista previa de Markdown con el editor.
 let SC_UPDATE_V_SCROLL: Int = 0x4
+let SC_UPDATE_H_SCROLL: Int = 0x8
 /// Códigos de SCNotification.nmhdr.code: el documento cruzó el savepoint (el punto que
 /// SCI_SETSAVEPOINT marcó como "sin cambios"). Reached = volvió a coincidir con el
 /// savepoint (undo hasta el original, o SCI_SETSAVEPOINT); Left = se alejó por primera vez.
@@ -301,9 +303,18 @@ let SC_MARK_BOOKMARK: Int = 31
 /// Marker de marcadores de usuario: 20. Los 21–24 son del historial de cambios de Scintilla
 /// (SC_MARKNUM_HISTORY_*) y 25–31 del plegado.
 let MARKER_BOOKMARK: Int = 20
-/// Márgenes: 0 = marcadores, 1 = números de línea, 2 = plegado, 3 = historial de cambios.
+/// Márgenes: 0 = marcadores, 1 = números de línea, 2 = plegado, 3 = historial de cambios,
+/// 4 = cambios de git.
 let MARGIN_BOOKMARKS: Int = 0
 let MARGIN_FOLD: Int = 2
+let MARGIN_GIT: Int = 4
+/// Cambios de git respecto de HEAD (GitGutter.swift). 17–19 y no 25–27: esos son del plegado.
+let MARKER_GIT_ADDED: Int = 17
+let MARKER_GIT_MODIFIED: Int = 18
+let MARKER_GIT_DELETED: Int = 19
+let SC_MARK_EMPTY: Int = 5
+let SC_MARK_FULLRECT: Int = 26
+let SC_MARK_LEFTRECT: Int = 27
 let SCN_CHARADDED: Int32 = 2001
 
 // Llaves/tags, zoom y fin de línea (BraceMatcher.swift, EditorPreferences, Codificación).
@@ -368,6 +379,17 @@ func firstVisibleDocumentLine(_ editor: ScintillaView) -> Int {
     return Int(ScintillaView.directCall(editor, message: SCI_DOCLINEFROMVISIBLE, wParam: uptr_t(max(0, display)), lParam: 0))
 }
 
+/// Estiliza hasta `position` solo si hace falta, para leer SCI_GETSTYLEAT ahí. SCI_COLOURISE(0, …)
+/// re-lexea desde el inicio en cada llamada (en un HTML de varios MB, en cada `>` o Tab); esto
+/// sigue desde el inicio de la línea de SCI_GETENDSTYLED, como hace Scintilla al pintar.
+func ensureStyled(editor: ScintillaView, upTo position: Int) {
+    let endStyled = Int(ScintillaView.directCall(editor, message: SCI_GETENDSTYLED, wParam: 0, lParam: 0))
+    guard endStyled < position else { return }
+    let line = ScintillaView.directCall(editor, message: SCI_LINEFROMPOSITION, wParam: uptr_t(max(0, endStyled)), lParam: 0)
+    let start = ScintillaView.directCall(editor, message: SCI_POSITIONFROMLINE, wParam: uptr_t(max(0, line)), lParam: 0)
+    _ = ScintillaView.directCall(editor, message: SCI_COLOURISE, wParam: uptr_t(max(0, start)), lParam: sptr_t(position))
+}
+
 // Lote 5: fin de línea, guías de indentación y línea de margen.
 let SCI_SETVIEWEOL: UInt32 = 2356
 let SCI_SETINDENTATIONGUIDES: UInt32 = 2132
@@ -385,3 +407,70 @@ let SCI_GETLINEINDENTATION: UInt32 = 2127
 let SCI_GETLINEINDENTPOSITION: UInt32 = 2128
 let SCI_GETTABWIDTH: UInt32 = 2121
 let SCI_GETINDENT: UInt32 = 2123
+let SCI_SETINDENT: UInt32 = 2122
+
+// Emmet (Emmet.swift).
+let SCI_GETUSETABS: UInt32 = 2125
+let SCI_AUTOCACTIVE: UInt32 = 2102
+let SCI_GETSELECTIONEMPTY: UInt32 = 2650
+
+// Macros (Macros.swift).
+let SCI_STARTRECORD: UInt32 = 3001
+let SCI_STOPRECORD: UInt32 = 3002
+let SCN_MACRORECORD: Int32 = 2009
+let SCI_ADDTEXT: UInt32 = 2001
+let SCI_CUT: UInt32 = 2177
+let SCI_COPY: UInt32 = 2178
+let SCI_PASTE: UInt32 = 2179
+let SCI_SELECTALL: UInt32 = 2013
+let SCI_SEARCHANCHOR: UInt32 = 2366
+let SCI_SEARCHNEXT: UInt32 = 2367
+let SCI_SEARCHPREV: UInt32 = 2368
+
+// Editor de columna (valores verificados contra scintilla/include/Scintilla.h)
+let SCI_GETSELECTIONMODE: UInt32 = 2423
+let SC_SEL_RECTANGLE = 1
+let SC_SEL_THIN = 3
+let SCI_GETSELECTIONNCARETVIRTUALSPACE: UInt32 = 2581
+let SCI_GETSELECTIONNANCHORVIRTUALSPACE: UInt32 = 2583
+let SCI_GETSELECTIONNSTART: UInt32 = 2585
+let SCI_GETSELECTIONNEND: UInt32 = 2587
+
+// Colores CSS (CSSColors.swift), verificados contra scintilla/include/Scintilla.h.
+/// Subrayado grueso al pie del texto (el de la composición del IME).
+let INDIC_COMPOSITIONTHICK: Int = 14
+/// SCI_INDICSETFLAGS(indicador, SC_INDICFLAG_VALUEFORE): el color sale del valor de cada tramo
+/// (SCI_SETINDICATORVALUE con SC_INDICVALUEBIT | BGR), no de SCI_INDICSETFORE.
+let SCI_INDICSETFLAGS: UInt32 = 2684
+let SC_INDICFLAG_VALUEFORE: Int = 1
+let SC_INDICVALUEBIT: Int = 0x1000000
+let SCI_GETENDSTYLED: UInt32 = 2028
+let SCI_SETEMPTYSELECTION: UInt32 = 2556
+
+// MARK: - Lote 14: comparar (verificadas contra scintilla/include/Scintilla.h)
+
+let SC_MARGIN_RTEXT: Int = 5
+let SCI_MARGINSETTEXT: UInt32 = 2530
+let SCI_MARGINSETSTYLE: UInt32 = 2532
+let SCI_MARGINTEXTCLEARALL: UInt32 = 2536
+let SC_MARK_BACKGROUND: Int = 22
+let SCI_SETMARGINBACKN: UInt32 = 2250
+let SCI_TEXTWIDTH: UInt32 = 2276
+
+// Anotaciones al final de línea (blame en línea, GitBlame.swift). El texto vive en el documento;
+// la visibilidad es por vista.
+let SCI_EOLANNOTATIONSETTEXT: UInt32 = 2740
+let SCI_EOLANNOTATIONSETSTYLE: UInt32 = 2742
+let SCI_EOLANNOTATIONCLEARALL: UInt32 = 2744
+let SCI_EOLANNOTATIONSETVISIBLE: UInt32 = 2745
+let SCI_EOLANNOTATIONSETSTYLEOFFSET: UInt32 = 2747
+let EOLANNOTATION_HIDDEN: Int = 0x0
+let EOLANNOTATION_STANDARD: Int = 0x1
+let SCI_ADDREFDOCUMENT: UInt32 = 2376
+let SCI_STYLEGETFORE: UInt32 = 2481
+let SCI_STYLEGETBACK: UInt32 = 2482
+
+// Lote 15: encabezado fijo (StickyHeader.swift).
+let SCI_GETLINE: UInt32 = 2153
+let SCI_STYLEGETSIZE: UInt32 = 2485
+let SCI_GETZOOM: UInt32 = 2374

@@ -92,9 +92,20 @@ extension TabsViewModel {
         // trabajo vive en un archivo que nunca se creó.
         let previousExtension = document.url?.pathExtension.lowercased()
         let previousURL = document.url
-        guard write(document: document, to: url) else { return false }
+        // charset de .editorconfig: solo en el primer guardado de un documento sin ruta.
+        let previousEncoding = (document.encoding, document.encodingName)
+        if previousURL == nil, let charset = loadEditorConfig(for: url).props.charset,
+           let (enc, name) = Self.encoding(forEditorConfigCharset: charset) {
+            document.encoding = enc
+            document.encodingName = name
+        }
+        guard write(document: document, to: url) else {
+            (document.encoding, document.encodingName) = previousEncoding
+            return false
+        }
         document.url = url
         document.displayName = url.lastPathComponent
+        reapplyEditorConfigToActive()
         updateWatchedFolders()
         recentFiles.add(url)
         // Guardar-como un documento bloqueado tiene que persistir la ruta nueva: si ya
@@ -138,10 +149,19 @@ extension TabsViewModel {
            ) {
             return false
         }
+        // El .editorconfig del destino manda sobre la preferencia global (en Guardar como el
+        // documento todavía apunta a la ruta vieja, de ahí la resolución explícita).
+        let config = document.url == url ? document.editorConfig : loadEditorConfig(for: url).props
         // Markdown no: dos espacios al final de línea son un salto de línea.
-        if preferences.trimTrailingWhitespaceOnSave, !document.isLocked,
-           document.languageProfile.lexerName != "markdown" {
-            trimTrailingWhitespace(editor)
+        let trim = config?.trimTrailingWhitespace
+            ?? (preferences.trimTrailingWhitespaceOnSave && document.languageProfile.lexerName != "markdown")
+        let finalNewline = config?.insertFinalNewline == true
+        if !document.isLocked, trim || finalNewline {
+            // Una sola acción de deshacer para recorte y salto final.
+            _ = ScintillaView.directCall(editor, message: SCI_BEGINUNDOACTION, wParam: 0, lParam: 0)
+            if trim { trimTrailingWhitespace(editor) }
+            if finalNewline { ensureFinalNewline() }
+            _ = ScintillaView.directCall(editor, message: SCI_ENDUNDOACTION, wParam: 0, lParam: 0)
         }
         let text = currentText(editor)
         guard let data = encode(text, for: document) else { return false }
@@ -158,7 +178,20 @@ extension TabsViewModel {
             document.pendingExternalConflict = false
             document.needsReload = false
             document.isDirty = false
+            SessionBackup.deleteBackup(of: document)
+            SnippetStore.shared.documentSaved(at: url)
             _ = ScintillaView.directCall(editor, message: SCI_SETSAVEPOINT, wParam: 0, lParam: 0)
+            // Diferido: en Guardar como la pestaña recién apunta a la ruta nueva al volver de write.
+            gitGutter.invalidate(document)
+            gitBlame.invalidate(document)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, document === self.activeDocument else { return }
+                self.gitGutter.refreshNow(document: document, editor: self.editor)
+            }
+            // Guardar recarga la vista previa HTML al instante, sin esperar el debounce.
+            if document === activeDocument, activeDocumentShowsHTMLPreview, activePreviewMode != .editor {
+                htmlPreview.refreshNow(text: text, baseDirectory: url.deletingLastPathComponent(), documentID: document.id)
+            }
             // Mismo motivo que en setActiveDirty(): sin esto, el punto de la pestaña
             // seguiría visible después de guardar hasta el próximo cambio de pestaña.
             objectWillChange.send()

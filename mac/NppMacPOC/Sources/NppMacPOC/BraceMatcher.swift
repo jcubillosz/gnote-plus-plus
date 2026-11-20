@@ -65,19 +65,28 @@ enum BraceMatcher {
     /// hasta 1 MB (recorre el documento entero en cada llamada; ContentView la difiere 150ms).
     static func updateTags(editor: ScintillaView, lexerName: String) {
         clearTags(editor: editor)
-        guard lexerName == "hypertext" || lexerName == "xml" else { return }
+        guard let (first, second) = matchingTagNames(editor: editor, lexerName: lexerName) else { return }
+        _ = ScintillaView.directCall(editor, message: SCI_SETINDICATORCURRENT, wParam: uptr_t(INDICATOR_TAG_MATCH), lParam: 0)
+        for range in [first, second] {
+            _ = ScintillaView.directCall(editor, message: SCI_INDICATORFILLRANGE, wParam: uptr_t(range.lowerBound), lParam: sptr_t(range.count))
+        }
+    }
+
+    /// Rangos (bytes) del nombre del tag bajo el caret y del de su pareja; nil sin pareja.
+    static func matchingTagNames(editor: ScintillaView, lexerName: String) -> (Range<Int>, Range<Int>)? {
+        guard lexerName == "hypertext" || lexerName == "xml" else { return nil }
         let length = Int(ScintillaView.directCall(editor, message: SCI_GETLENGTH, wParam: 0, lParam: 0))
         guard length > 0, length <= 1_000_000,
-              let text = SpellChecker.targetText(editor: editor, start: 0, end: length) else { return }
+              let text = SpellChecker.targetText(editor: editor, start: 0, end: length) else { return nil }
         let bytes = Array(text.utf8)
         let caret = Int(ScintillaView.directCall(editor, message: SCI_GETCURRENTPOS, wParam: 0, lParam: 0))
 
         let tags = scanTags(bytes)
         // Caret pegado al '<' o dentro del tag; si no, justo después del '>' (como Notepad++).
         guard let index = tags.firstIndex(where: { $0.start <= caret && caret < $0.end })
-                ?? tags.firstIndex(where: { $0.end == caret }) else { return }
+                ?? tags.firstIndex(where: { $0.end == caret }) else { return nil }
         let tag = tags[index]
-        guard !tag.isSelfClosing else { return }
+        guard !tag.isSelfClosing else { return nil }
 
         var depth = 0
         var partner: Tag?
@@ -90,11 +99,8 @@ enum BraceMatcher {
                 if !candidate.isClosing { depth += 1 } else if depth == 0 { partner = candidate; break } else { depth -= 1 }
             }
         }
-        guard let partner else { return }
-        _ = ScintillaView.directCall(editor, message: SCI_SETINDICATORCURRENT, wParam: uptr_t(INDICATOR_TAG_MATCH), lParam: 0)
-        for marked in [tag, partner] {
-            _ = ScintillaView.directCall(editor, message: SCI_INDICATORFILLRANGE, wParam: uptr_t(marked.nameStart), lParam: sptr_t(marked.nameEnd - marked.nameStart))
-        }
+        guard let partner else { return nil }
+        return (tag.nameStart..<tag.nameEnd, partner.nameStart..<partner.nameEnd)
     }
 
     private struct Tag {

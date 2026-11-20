@@ -31,6 +31,9 @@ struct AppCommands: Commands {
     // Idem: los checks del menú Vista leen preferences.wordWrap/showLineNumbers/
     // showWhitespace, que viven en otro ObservableObject anidado.
     @ObservedObject var preferences: EditorPreferences
+    // Idem: el título de grabar/detener y la lista de macros guardadas.
+    @ObservedObject var macros: MacroRecorder
+    @ObservedObject var clipboardHistory: ClipboardHistory
 
     private let commonEncodings = ["UTF-8", "UTF-16LE", "UTF-16BE", "ISO-8859-1", "Windows-1252"]
 
@@ -50,6 +53,10 @@ struct AppCommands: Commands {
                 .keyboardShortcut("o", modifiers: .command)
             Button(L("Abrir carpeta…")) { actions.openFolder() }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
+            Button(L("Abrir rápido…")) {
+                showQuickOpen(tabs.quickPanel, tabs: tabs, index: tabs.fileIndex, root: fileTree.root?.url)
+            }
+            .keyboardShortcut("t", modifiers: .command)
             Menu(L("Abrir recientes")) {
                 ForEach(recentFiles.urls, id: \.self) { url in
                     Button(url.lastPathComponent) { tabs.open(url: url) }
@@ -103,7 +110,7 @@ struct AppCommands: Commands {
             Divider()
             // Tamaño de papel (carta, legal, A4…): el PDF de Markdown se pagina con él.
             Button(L("Ajustar página…")) { NSPageLayout().runModal(with: NSPrintInfo.shared) }
-                .keyboardShortcut("p", modifiers: [.command, .shift])
+                .keyboardShortcut("p", modifiers: [.command, .shift, .option])
             Button(L("Imprimir…")) { actions.printDocument() }
                 .keyboardShortcut("p", modifiers: .command)
                 .disabled(tabs.activeIndex == nil)
@@ -114,6 +121,9 @@ struct AppCommands: Commands {
                 .disabled(tabs.activeIndex == nil)
             Button(L("Exportar a PDF…")) { actions.export(asPDF: true) }
                 .disabled(tabs.activeIndex == nil)
+            Button(L("Abrir en el navegador")) { tabs.openActiveInBrowser() }
+                .keyboardShortcut("b", modifiers: [.command, .option])
+                .disabled(!tabs.activeDocumentIsHTML || tabs.activeDocument?.url == nil)
         }
 
         CommandGroup(after: .textEditing) {
@@ -147,6 +157,12 @@ struct AppCommands: Commands {
             .keyboardShortcut("g", modifiers: [.command, .shift])
             .disabled(tabs.activeIndex == nil)
 
+            Button(L("Probar expresión regular…")) {
+                RegexTesterPanel.shared.show(tabs: tabs)
+            }
+            .keyboardShortcut("x", modifiers: [.command, .control])
+            .disabled(tabs.activeIndex == nil)
+
             Button(L("Buscar en archivos…")) {
                 tabs.outline.sidebarTab = .search
                 tabs.outline.showRequestToken += 1
@@ -154,9 +170,27 @@ struct AppCommands: Commands {
             }
             .keyboardShortcut("f", modifiers: [.command, .shift])
 
+            Button(L("Reemplazar en archivos…")) {
+                tabs.outline.sidebarTab = .search
+                tabs.outline.showRequestToken += 1
+                tabs.findInFiles.showReplace = true
+                tabs.findInFiles.focusRequestToken += 1
+            }
+            .keyboardShortcut("h", modifiers: [.command, .shift])
+
+            Button(L("Ir a símbolo del proyecto…")) {
+                showQuickOpen(tabs.quickPanel, tabs: tabs, index: tabs.fileIndex, root: fileTree.root?.url,
+                              initialQuery: "#")
+            }
+            .keyboardShortcut("o", modifiers: [.command, .option])
+
             Button(L("Ir a la línea…")) { goToLine(editor: tabs.editor) }
                 .keyboardShortcut("l", modifiers: .command)
                 .disabled(tabs.activeIndex == nil)
+
+            Button(L("Pegar desde el historial…")) { clipboardHistory.pickerVisible = true }
+                .keyboardShortcut("v", modifiers: [.command, .shift])
+                .disabled(!canEditActive || clipboardHistory.entries.isEmpty)
 
             Menu(L("Marcadores")) {
                 Button(L("Alternar marcador")) { toggleBookmark(editor: tabs.editor) }
@@ -167,6 +201,17 @@ struct AppCommands: Commands {
                     .keyboardShortcut(functionKey(2), modifiers: .shift)
                 Divider()
                 Button(L("Borrar todos los marcadores")) { clearBookmarks(editor: tabs.editor) }
+                Divider()
+                Button(L("Cortar líneas con marcador")) { cutBookmarkedLines(tabs.editor) }
+                    .disabled(!canEditActive)
+                Button(L("Copiar líneas con marcador")) { copyBookmarkedLines(tabs.editor) }
+                Button(L("Pegar reemplazando líneas con marcador")) { pasteReplacingBookmarkedLines(tabs.editor) }
+                    .disabled(!canEditActive)
+                Button(L("Eliminar líneas con marcador")) { deleteLines(tabs.editor, bookmarked: true) }
+                    .disabled(!canEditActive)
+                Button(L("Eliminar líneas sin marcador")) { deleteLines(tabs.editor, bookmarked: false) }
+                    .disabled(!canEditActive)
+                Button(L("Invertir marcadores")) { invertBookmarks(tabs.editor) }
             }
             .disabled(tabs.activeIndex == nil)
 
@@ -259,6 +304,9 @@ struct AppCommands: Commands {
             // con teclado español.
             .keyboardShortcut("k", modifiers: .command)
             .disabled(!canEditActive || (!tabs.activeDocumentIsMarkdown && tabs.activeDocument?.languageProfile.comment.isAvailable != true))
+            Button(L("Editor de columna…")) { tabs.showColumnEditor = true }
+                .keyboardShortcut("c", modifiers: [.command, .option])
+                .disabled(!canEditActive)
             Button(L("Ir a la llave pareja")) {
                 if !BraceMatcher.goToMatchingBrace(editor: tabs.editor, select: false) { NSSound.beep() }
             }
@@ -269,6 +317,25 @@ struct AppCommands: Commands {
             }
             .keyboardShortcut("b", modifiers: [.command, .control, .shift])
             .disabled(tabs.activeIndex == nil)
+            Button(L("Renombrar etiqueta")) { tabs.renameTag() }
+                .keyboardShortcut("r", modifiers: [.command, .control])
+                .disabled(!canEditActive || !["hypertext", "xml"].contains(tabs.activeDocument?.languageProfile.lexerName ?? ""))
+            Button(L("Expandir abreviatura")) {
+                if !expandEmmetAtCaret(editor: tabs.editor) { NSSound.beep() }
+            }
+            .keyboardShortcut("e", modifiers: .command)
+            .disabled(!canEditActive || !["hypertext", "xml", "markdown"].contains(tabs.activeDocument?.languageProfile.lexerName ?? ""))
+            Menu(L("Fragmentos")) {
+                Button(L("Insertar fragmento…")) { tabs.showSnippetPicker() }
+                    .keyboardShortcut("i", modifiers: [.command, .control])
+                    .disabled(!canEditActive)
+                Toggle(L("Expandir fragmentos con Tab"), isOn: $preferences.snippetsEnabled)
+                Divider()
+                Button(L("Administrar fragmentos…")) { SnippetManagerWindow.show() }
+                Button(L("Abrir snippets.json")) { tabs.openSnippetsFile() }
+            }
+            Button(L("Elegir color…")) { pickCSSColor(editor: tabs.editor) }
+                .disabled(!canEditActive)
             Button(L("Formatear tabla Markdown")) {
                 if !MarkdownEditing.formatTable(editor: tabs.editor) { NSSound.beep() }
             }
@@ -332,6 +399,9 @@ struct AppCommands: Commands {
         }
 
         CommandMenu(L("Vista")) {
+            Button(L("Paleta de comandos…")) { showCommandPalette(tabs.quickPanel) }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+            Divider()
             Button(L("Resumen…")) { showDocumentSummary(editor: tabs.editor) }
                 .disabled(tabs.activeIndex == nil)
             Divider()
@@ -363,6 +433,14 @@ struct AppCommands: Commands {
                 set: { preferences.showDocumentMap = $0 }
             ))
             .keyboardShortcut("m", modifiers: [.command, .control])
+            Toggle(L("Mostrar ruta de navegación"), isOn: Binding(
+                get: { preferences.showBreadcrumbs },
+                set: { preferences.showBreadcrumbs = $0 }
+            ))
+            Toggle(L("Encabezado fijo"), isOn: Binding(
+                get: { preferences.stickyScroll },
+                set: { preferences.stickyScroll = $0 }
+            ))
             Toggle(L("Margen de plegado"), isOn: Binding(
                 get: { preferences.showFoldMargin },
                 set: { preferences.showFoldMargin = $0; preferences.applyEditingOptions(to: tabs.editor) }
@@ -397,6 +475,15 @@ struct AppCommands: Commands {
                 get: { preferences.showChangeHistory },
                 set: { preferences.showChangeHistory = $0; preferences.applyEditingOptions(to: tabs.editor) }
             ))
+            Toggle(L("Mostrar cambios de git"), isOn: Binding(
+                get: { preferences.showGitGutter },
+                set: { preferences.showGitGutter = $0; tabs.gitGutter.refreshNow(document: tabs.activeDocument, editor: tabs.editor) }
+            ))
+            Toggle(L("Blame en línea"), isOn: Binding(
+                get: { preferences.showInlineBlame },
+                set: { preferences.showInlineBlame = $0; tabs.gitBlame.caretMoved(document: tabs.activeDocument, editor: tabs.editor) }
+            ))
+            .keyboardShortcut("l", modifiers: [.control, .command])
             Toggle(L("Autocerrar paréntesis y comillas"), isOn: Binding(
                 get: { preferences.autoCloseBrackets },
                 set: { preferences.autoCloseBrackets = $0 }
@@ -415,30 +502,36 @@ struct AppCommands: Commands {
             ))
             Divider()
             Toggle(L("Solo editor"), isOn: Binding(
-                get: { preview.mode == .editor },
-                set: { if $0 { preview.mode = .editor } }
+                get: { tabs.activePreviewMode == .editor },
+                set: { if $0 { tabs.activePreviewMode = .editor } }
             ))
             .keyboardShortcut("1", modifiers: [.command, .option])
-            .disabled(!tabs.activeDocumentIsMarkdown)
+            .disabled(!tabs.activeDocumentHasPreview)
             Toggle(L("Dividida"), isOn: Binding(
-                get: { preview.mode == .split },
-                set: { if $0 { preview.mode = .split } }
+                get: { tabs.activePreviewMode == .split },
+                set: { if $0 { tabs.activePreviewMode = .split } }
             ))
             .keyboardShortcut("2", modifiers: [.command, .option])
-            .disabled(!tabs.activeDocumentIsMarkdown)
+            .disabled(!tabs.activeDocumentHasPreview)
             Toggle(L("Solo vista previa"), isOn: Binding(
-                get: { preview.mode == .preview },
-                set: { if $0 { preview.mode = .preview } }
+                get: { tabs.activePreviewMode == .preview },
+                set: { if $0 { tabs.activePreviewMode = .preview } }
             ))
             .keyboardShortcut("3", modifiers: [.command, .option])
-            .disabled(!tabs.activeDocumentIsMarkdown)
+            .disabled(!tabs.activeDocumentHasPreview)
             // ⌥⌘P conserva la función previa (Task 7 brief): alterna solo entre editor y
             // dividida, sin pasar nunca a solo-vista-previa desde el atajo histórico.
             Button(L("Alternar vista dividida")) {
-                preview.mode = preview.mode == .split ? .editor : .split
+                tabs.activePreviewMode = tabs.activePreviewMode == .split ? .editor : .split
             }
             .keyboardShortcut("p", modifiers: [.command, .option])
-            .disabled(!tabs.activeDocumentIsMarkdown)
+            .disabled(!tabs.activeDocumentHasPreview)
+            Toggle(L("Ver como tabla"), isOn: Binding(
+                get: { tabs.activeDocumentIsTable && tabs.activePreviewMode != .editor },
+                set: { _ in tabs.toggleTableView() }
+            ))
+            .keyboardShortcut("t", modifiers: [.command, .control])
+            .disabled(tabs.activeDocument == nil)
             Divider()
             Button(L("Mostrar esquema")) {
                 tabs.outline.sidebarTab = .outline
@@ -479,6 +572,87 @@ struct AppCommands: Commands {
                 applyFormatter(editor: tabs.editor) { try formatXML($0, indent: indent) }
             }
                 .disabled(!canEditActive)
+            Button(L("Formatear con herramienta externa")) { formatWithExternalTool(tabs: tabs) }
+                .keyboardShortcut("f", modifiers: [.command, .option, .shift])
+                .disabled(!canEditActive)
+            Divider()
+            Button(L("Codificar URL")) {
+                webTransform(editor: tabs.editor, title: L("Codificar URL"), errorDetail: "") { urlEncode($0) }
+            }
+            .disabled(!canEditActive)
+            Button(L("Decodificar URL")) {
+                webTransform(editor: tabs.editor, title: L("Decodificar URL"), errorDetail: L("El texto no es una URL codificada válida.")) { urlDecode($0) }
+            }
+            .disabled(!canEditActive)
+            Button(L("Codificar entidades HTML")) {
+                webTransform(editor: tabs.editor, title: L("Codificar entidades HTML"), errorDetail: "") { htmlEntitiesEncode($0) }
+            }
+            .disabled(!canEditActive)
+            Button(L("Decodificar entidades HTML")) {
+                webTransform(editor: tabs.editor, title: L("Decodificar entidades HTML"), errorDetail: "") { htmlEntitiesDecode($0) }
+            }
+            .disabled(!canEditActive)
+            Divider()
+            Menu(L("Comparar")) {
+                Button(L("Con HEAD")) { tabs.compareActiveWithHead() }
+                    .keyboardShortcut("k", modifiers: [.command, .control])
+                    .disabled(tabs.activeDocument?.url == nil)
+                Button(L("Con la versión guardada")) { tabs.compareActiveWithDisk() }
+                    .keyboardShortcut("k", modifiers: [.command, .control, .shift])
+                    .disabled(tabs.activeDocument?.url == nil)
+                Menu(L("Con pestaña")) {
+                    ForEach(tabs.documents.filter { $0 !== tabs.activeDocument }, id: \.id) { other in
+                        Button(other.displayName) { tabs.compareActive(with: other.id) }
+                    }
+                }
+                .disabled(tabs.documents.count < 2 || tabs.activeDocument == nil)
+            }
+            Divider()
+            Button(L("Decodificar JWT")) { decodeJWTToNewDocument(tabs: tabs) }
+                .disabled(tabs.activeIndex == nil)
+            Button(L("Timestamp → fecha")) {
+                webTransform(editor: tabs.editor, title: L("Timestamp → fecha"), errorDetail: L("El texto no es un timestamp de 10 dígitos (segundos) o 13 (milisegundos)."),
+                             keepTrailingEOL: true) {
+                    timestampToISO($0, timeZone: .current)
+                }
+            }
+            .disabled(!canEditActive)
+            Button(L("Fecha → timestamp")) {
+                webTransform(editor: tabs.editor, title: L("Fecha → timestamp"), errorDetail: L("El texto no es una fecha ISO 8601 (por ejemplo 2018-01-18T01:30:22Z)."),
+                             keepTrailingEOL: true) {
+                    isoToTimestamp($0).map { String($0) }
+                }
+            }
+            .disabled(!canEditActive)
+        }
+
+        CommandMenu(L("Macro")) {
+            Button(macros.isRecording ? L("Detener grabación") : L("Iniciar grabación")) {
+                if macros.isRecording { macros.stop(editor: tabs.editor) } else { macros.start(editor: tabs.editor) }
+            }
+            .keyboardShortcut("r", modifiers: [.control, .shift])
+            .disabled(!macros.isRecording && tabs.activeIndex == nil)
+            Button(L("Reproducir")) { tabs.playMacro(macros.current, times: 1) }
+                .keyboardShortcut("p", modifiers: [.control, .shift])
+                .disabled(!tabs.canPlayMacro || macros.current.isEmpty)
+            Button(L("Reproducir varias veces…")) { playMacroMultipleTimesDialog(tabs: tabs) }
+                .disabled(!tabs.canPlayMacro || macros.current.isEmpty)
+            Button(L("Guardar macro actual…")) { saveCurrentMacroDialog(macros: macros) }
+                .disabled(macros.current.isEmpty || macros.isRecording)
+            if !macros.saved.isEmpty {
+                Divider()
+                ForEach(macros.saved) { macro in
+                    Button(macro.name) { tabs.playMacro(macro.steps, times: 1) }
+                        .disabled(!tabs.canPlayMacro)
+                }
+            }
+            Divider()
+            Menu(L("Eliminar macro")) {
+                ForEach(macros.saved) { macro in
+                    Button(macro.name) { macros.delete(id: macro.id) }
+                }
+            }
+            .disabled(macros.saved.isEmpty)
         }
     }
 

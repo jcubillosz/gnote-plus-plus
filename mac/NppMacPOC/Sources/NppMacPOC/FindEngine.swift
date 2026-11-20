@@ -236,3 +236,33 @@ func clearHighlights(editor: ScintillaView) {
     _ = ScintillaView.directCall(editor, message: SCI_SETINDICATORCURRENT, wParam: uptr_t(INDICATOR_FIND_CURRENT), lParam: 0)
     _ = ScintillaView.directCall(editor, message: SCI_INDICATORCLEARRANGE, wParam: 0, lParam: sptr_t(docLength))
 }
+
+/// Marca (indicador 14) todas las coincidencias sin borrar las marcas previas; con `bookmarkLines`
+/// agrega además el marcador de línea. Devuelve cuántas coincidencias marcó.
+func markAllMatches(editor: ScintillaView, find: FindViewModel, bookmarkLines: Bool) -> Int {
+    guard !find.findText.isEmpty else { return 0 }
+    let docLength = Int(ScintillaView.directCall(editor, message: SCI_GETLENGTH, wParam: 0, lParam: 0))
+    _ = ScintillaView.directCall(editor, message: SCI_SETINDICATORCURRENT, wParam: uptr_t(INDICATOR_MARK), lParam: 0)
+    var cursor = 0
+    var count = 0
+    for _ in 0..<100_000 {
+        guard cursor <= docLength, let match = search(editor: editor, find: find, from: cursor, to: docLength) else { break }
+        if match.end > match.start {
+            _ = ScintillaView.directCall(editor, message: SCI_INDICATORFILLRANGE, wParam: uptr_t(match.start), lParam: sptr_t(match.end - match.start))
+        }
+        if bookmarkLines {
+            let line = ScintillaView.directCall(editor, message: SCI_LINEFROMPOSITION, wParam: uptr_t(match.start), lParam: 0)
+            _ = ScintillaView.directCall(editor, message: SCI_MARKERADD, wParam: uptr_t(line), lParam: sptr_t(MARKER_BOOKMARK))
+        }
+        count += 1
+        cursor = max(match.end, match.start + 1)
+    }
+    return count
+}
+
+/// Borra solo las marcas del indicador 14 (no toca los marcadores de línea).
+func clearMarks(editor: ScintillaView) {
+    let docLength = Int(ScintillaView.directCall(editor, message: SCI_GETLENGTH, wParam: 0, lParam: 0))
+    _ = ScintillaView.directCall(editor, message: SCI_SETINDICATORCURRENT, wParam: uptr_t(INDICATOR_MARK), lParam: 0)
+    _ = ScintillaView.directCall(editor, message: SCI_INDICATORCLEARRANGE, wParam: 0, lParam: sptr_t(docLength))
+}

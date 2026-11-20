@@ -20,6 +20,12 @@ final class Document: Identifiable {
     var encodingNote: String?
     var eol: EOLMode
     var isDirty: Bool = false
+    /// Propiedades de .editorconfig vigentes para este documento (nil = ninguna). `editorConfigStamps`
+    /// y `editorConfigResolvedURL` deciden cuándo hay que volver a leerlas.
+    var editorConfig: EditorConfigProperties?
+    var editorConfigSources: [URL] = []
+    var editorConfigStamps: [FileStamp?] = []
+    var editorConfigResolvedURL: URL?
     /// Solo lectura visible (tinte navy) e impuesto en Scintilla. Persistido por ruta en
     /// LockedFiles; un documento "Nuevo" sin URL se bloquea solo durante la sesión (no hay
     /// ruta que persistir). SCI_SETREADONLY se guarda por documento de Scintilla, pero esta
@@ -44,6 +50,18 @@ final class Document: Identifiable {
     /// Cambió en disco mientras la pestaña estaba inactiva: se resuelve al activarla.
     var needsReload = false
     var pendingExternalConflict = false
+    /// Hubo ediciones desde el último tick de respaldo. No es estado visible: no publica nada.
+    var backupPending = false
+    /// Nombre del archivo de respaldo en SessionBackup.directory, una vez escrito.
+    var backupFileName: String?
+    /// Modo de vista de un HTML: por documento, sin persistir y siempre `.editor` al abrir. La
+    /// vista previa HTML ejecuta el JavaScript de la página; con el modo global de Markdown,
+    /// abrir cualquier .html lo correría sin que el usuario lo pida.
+    var htmlPreviewMode: MarkdownPreviewViewModel.PreviewMode = .editor
+    /// Vista de tabla CSV/TSV: por documento y sin persistir, como en HTML.
+    var tablePreviewMode: MarkdownPreviewViewModel.PreviewMode = .editor
+    /// Vista → Ver como tabla en un archivo sin extensión tabular.
+    var forcedTable = false
 
     init(
         pointer: sptr_t,
@@ -66,6 +84,13 @@ final class Document: Identifiable {
     }
 }
 
+/// Número final de un nombre "sin título N" (en cualquier idioma: solo mira los dígitos del final).
+func untitledNumber(in name: String) -> Int? {
+    let digits = name.reversed().prefix { $0.isASCII && $0.isNumber }
+    guard !digits.isEmpty else { return nil }
+    return Int(String(digits.reversed()))
+}
+
 /// Estado de vista (selección/scroll) de un documento, capturado justo antes de desactivarlo.
 /// Codable porque una task futura (restauración de sesión) lo persiste a UserDefaults como JSON.
 struct ViewState: Codable, Equatable {
@@ -79,6 +104,8 @@ final class TabsViewModel: ObservableObject {
         didSet { updateWatchedFolders() }
     }
     @Published private(set) var activeIndex: Int?
+    /// Hoja del editor de columna (la abre Editar → Editor de columna…, la presenta ContentView).
+    @Published var showColumnEditor = false
 
     /// Reordena pestañas (arrastrar). `destination` es el índice final del documento movido.
     /// No hay SETDOCPOINTER: el documento activo sigue siendo el mismo, solo cambia su índice.
@@ -97,9 +124,16 @@ final class TabsViewModel: ObservableObject {
     let statusBar = StatusBarViewModel()
     let find = FindViewModel()
     let preview = MarkdownPreviewViewModel()
+    let htmlPreview = HTMLPreviewViewModel()
+    let csvTable = CSVTableViewModel()
     let spellCheck = SpellCheckViewModel()
     let outline = OutlineViewModel()
     let findInFiles = FindInFilesViewModel()
+    let macros = MacroRecorder()
+    let clipboardHistory = ClipboardHistory()
+    let quickPanel = QuickPanelViewModel()
+    let fileIndex = FileIndex()
+    let projectSymbols = ProjectSymbolIndex()
     let recentFiles: RecentPathsViewModel
     private(set) var currentTheme: EditorTheme = .light
     private var untitledCounter = 0
@@ -109,8 +143,39 @@ final class TabsViewModel: ObservableObject {
     /// Evita apilar alertas de "cambió en disco" mientras una ya está abierta.
     var isPresentingExternalChangeAlert = false
 
+    /// Lector oculto para el texto de documentos no activos: el editor visible es uno solo y
+    /// cambiar su documento movería la pestaña activa.
+    private lazy var hiddenReader = ScintillaView(frame: NSRect(x: 0, y: 0, width: 400, height: 200))
+
+    /// Texto de cualquier documento sin cambiar la pestaña activa.
+    func text(of document: Document) -> String {
+        if document === activeDocument { return currentText(editor) }
+        _ = ScintillaView.directCall(hiddenReader, message: SCI_SETDOCPOINTER, wParam: 0, lParam: document.pointer)
+        let text = currentText(hiddenReader)
+        _ = ScintillaView.directCall(hiddenReader, message: SCI_SETDOCPOINTER, wParam: 0, lParam: 0)
+        return text
+    }
+
+    /// Ejecuta `body` con una vista sobre el documento sin cambiar la pestaña activa.
+    func withDocumentView<T>(_ document: Document, _ body: (ScintillaView) -> T) -> T {
+        if document === activeDocument { return body(editor) }
+        _ = ScintillaView.directCall(hiddenReader, message: SCI_SETDOCPOINTER, wParam: 0, lParam: document.pointer)
+        defer { _ = ScintillaView.directCall(hiddenReader, message: SCI_SETDOCPOINTER, wParam: 0, lParam: 0) }
+        return body(hiddenReader)
+    }
+
     /// Minimapa: un ScintillaView aparte que comparte el documento del editor.
     lazy var documentMap = DocumentMapView(editor: editor)
+    lazy var gitGutter: GitGutter = {
+        let gutter = GitGutter(preferences: preferences)
+        // Un diff nuevo puede desplazar la línea de HEAD que corresponde al cursor.
+        gutter.onHunksUpdated = { [weak self] document in
+            guard let self, document === self.activeDocument else { return }
+            self.gitBlame.caretMoved(document: document, editor: self.editor)
+        }
+        return gutter
+    }()
+    lazy var gitBlame = GitBlame(preferences: preferences, gutter: gitGutter)
 
     init(editor: ScintillaView, preferences: EditorPreferences, recentFiles: RecentPathsViewModel) {
         self.editor = editor
@@ -212,6 +277,46 @@ final class TabsViewModel: ObservableObject {
         )
     }
 
+    /// Pestaña recuperada de un respaldo (SessionStore.restore). `baseText` (disco, o vacío)
+    /// se carga como versión guardada y encima el respaldo como una sola acción de deshacer:
+    /// queda sucia por SCN_SAVEPOINTLEFT y ⌘Z vuelve a la versión base. Cargar el respaldo
+    /// directo la dejaría "guardada" (EMPTYUNDOBUFFER + SETSAVEPOINT de appendAndActivate).
+    @discardableResult
+    func restoreFromBackup(
+        text: String,
+        baseText: String,
+        url: URL?,
+        displayName: String,
+        profile: LanguageProfile,
+        encoding: String.Encoding,
+        encodingName: String,
+        eol: EOLMode,
+        locked: Bool
+    ) -> Document? {
+        appendAndActivate(
+            text: baseText,
+            url: url,
+            displayName: displayName,
+            profile: profile,
+            encoding: encoding,
+            encodingName: encodingName,
+            encodingNote: nil,
+            eol: eol,
+            locked: locked
+        )
+        guard let document = activeDocument else { return nil }
+        _ = ScintillaView.directCall(editor, message: SCI_BEGINUNDOACTION, wParam: 0, lParam: 0)
+        loadText(editor, text)
+        _ = ScintillaView.directCall(editor, message: SCI_ENDUNDOACTION, wParam: 0, lParam: 0)
+        syncDirtyFlagOfActiveDocument()
+        // Un "sin título N" restaurado reserva su número: el próximo Nuevo no lo repite.
+        if url == nil, let number = untitledNumber(in: displayName) {
+            untitledCounter = max(untitledCounter, number)
+        }
+        objectWillChange.send()
+        return document
+    }
+
     private func appendAndActivate(
         text: String,
         url: URL?,
@@ -247,7 +352,7 @@ final class TabsViewModel: ObservableObject {
         // escribe pdoc->eolMode), así que viaja con SCI_SETDOCPOINTER y basta con
         // fijarlo acá. Sin esto las líneas nuevas usarían el EOL del default de la
         // plataforma y un archivo CRLF terminaría mezclado.
-        _ = ScintillaView.directCall(editor, message: SCI_SETEOLMODE, wParam: uptr_t(eol.rawValue), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETEOLMODE, wParam: uptr_t(editorConfigEOLMode(for: document).rawValue), lParam: 0)
         loadText(editor, text)
         // Sin esto, Cmd+Z justo después de abrir vacía el documento recién cargado: para
         // Scintilla, cargar texto es "una edición más" y queda en el buffer de undo.
@@ -303,12 +408,19 @@ final class TabsViewModel: ObservableObject {
         // Libera el estado de "ignorar palabra"/aprendizaje que NSSpellChecker guarda por
         // tag: sin esto, tags de pestañas cerradas se acumulan durante toda la sesión.
         NSSpellChecker.shared.closeSpellDocument(withTag: document.spellDocumentTag)
+        gitGutter.invalidate(document)
+        gitBlame.forget(document)
+        // Cerrar es intencional (guardado o descartado): el respaldo ya no tiene qué recuperar.
+        SessionBackup.deleteBackup(of: document)
         documents.remove(at: closingIndex)
         if documents.isEmpty {
             activeIndex = nil
             statusBar.reset()
             find.reset()
             preview.cancelPendingRefresh()
+            // Sin activate(at:) no pasa por attachToEditor, que es quien la cierra al cambiar de
+            // pestaña: el panel de colores seguiría apuntando al documento liberado.
+            CSSColorPicker.shared.endSession()
             return true
         }
         if let previouslyActive, previouslyActive !== document,
@@ -329,6 +441,10 @@ final class TabsViewModel: ObservableObject {
     }
 
     private func attachToEditor(_ document: Document) {
+        refreshEditorConfig(of: document)
+        preferences.activeEditorConfig = document.editorConfig
+        // Antes de cambiar de documento: la acción de deshacer abierta es del documento actual.
+        CSSColorPicker.shared.endSession()
         _ = ScintillaView.directCall(editor, message: SCI_SETDOCPOINTER, wParam: 0, lParam: document.pointer)
         // Scintilla guarda solo-lectura por documento, pero Document.isLocked es la fuente
         // de verdad: reaplicarlo en cada activación cubre tanto la primera apertura como
@@ -355,6 +471,7 @@ final class TabsViewModel: ObservableObject {
         statusBar.encoding = document.encodingName
         statusBar.encodingNote = document.encodingNote
         statusBar.eol = document.eol.displayName
+        statusBar.editorConfigInfo = editorConfigTooltip(of: document)
     }
 
     func syncDirtyFlagOfActiveDocument() {
@@ -411,6 +528,9 @@ final class TabsViewModel: ObservableObject {
     /// desaparezca de inmediato.
     func toggleLockActive() {
         guard let document = activeDocument else { return }
+        // Con el documento en solo-lectura los REPLACETARGET de los espejos se ignorarían y los
+        // campos quedarían desfasados: la sesión termina antes de bloquear.
+        if !document.isLocked { SnippetSession.current?.end() }
         document.isLocked.toggle()
         if let url = document.url {
             LockedFiles.set(url, locked: document.isLocked)
@@ -667,6 +787,9 @@ final class TabsViewModel: ObservableObject {
         // del tema nuevo. Iba por acá que un toggle de tema con un documento de texto
         // plano bloqueado (o recién desbloqueado) filtraba navy a otras pestañas.
         reapplyPreferencesAndTheme()
+        CompareWindowController.applyThemeToAll()
+        // STYLECLEARALL pisó el estilo de la anotación del blame.
+        gitBlame.caretMoved(document: activeDocument, editor: editor)
     }
 
     // MARK: - Convertir fin de línea
@@ -707,7 +830,7 @@ final class TabsViewModel: ObservableObject {
         document.encodingName = encodingName
         document.encodingNote = L("Forzado manualmente desde el menú Codificación.")
         document.eol = detectEOL(text)
-        _ = ScintillaView.directCall(editor, message: SCI_SETEOLMODE, wParam: uptr_t(document.eol.rawValue), lParam: 0)
+        _ = ScintillaView.directCall(editor, message: SCI_SETEOLMODE, wParam: uptr_t(editorConfigEOLMode(for: document).rawValue), lParam: 0)
         publishFileInfo(of: document)
         // Se invalida en vez de dejar que Scintilla la acote: forzar un encoding puede cambiar
         // radicalmente el contenido decodificado (mojibake -> texto real), así que la posición

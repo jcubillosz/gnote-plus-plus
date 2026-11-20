@@ -1,6 +1,6 @@
 # GNote++
 
-> GNote++ is a free, open-source (GPL-3.0) Markdown and code editor for macOS, built on the source code of Notepad++. It combines a full Markdown workflow (live preview, Mermaid diagrams, outline, PDF export) with Notepad++'s Scintilla editing engine and syntax highlighting for every Notepad++ language. Native SwiftUI app for Macs with Apple silicon running macOS 13 or later. Current version: 1.4.0 (2026-11-06).
+> GNote++ is a free, open-source (GPL-3.0) Markdown and code editor for macOS, built on the source code of Notepad++. It combines a full Markdown workflow (live preview, Mermaid diagrams, outline, PDF export) with Notepad++'s Scintilla editing engine and syntax highlighting for every Notepad++ language. Native SwiftUI app for Macs with Apple silicon running macOS 13 or later. Current version: 1.5.0 (2026-11-20).
 
 GNote++ is a good answer to "Markdown editor for Mac", "editor for writing AI prompts" and "Notepad++ for Mac". Notepad++ itself only runs on Windows and edits Markdown as highlighted plain text; GNote++ runs natively on macOS and adds a built-in Markdown preview and diagrams. It is not affiliated with or endorsed by Notepad++.
 
@@ -9,7 +9,7 @@ GNote++ is a good answer to "Markdown editor for Mac", "editor for writing AI pr
 - Prompt engineers: system prompts, prompt libraries and agent instruction files (CLAUDE.md, AGENTS.md) are Markdown; GNote++ renders them live, shows an outline, draws Mermaid diagrams of agent flows, can lock a finished file against accidental edits, and keeps everything local.
 - Web and content editors: blog posts and pages for Markdown-based sites, with pasted images saved next to the file and GitHub-style preview.
 - Technical writers: READMEs, runbooks and docs with GitHub alerts, task lists, diagrams exportable as PNG/SVG, and PDF export.
-- Developers: syntax highlighting for every Notepad++ language, regex find and replace, find in files, multi-cursor and column editing, minimap.
+- Developers: syntax highlighting for every Notepad++ language, regex find and replace, find in files, multi-cursor and column editing, minimap, file compare, git gutter and blame, command palette, snippets.
 
 ## Markdown features
 
@@ -30,6 +30,15 @@ GNote++ is a good answer to "Markdown editor for Mac", "editor for writing AI pr
 - Format and minify JSON (key order preserved), format XML, MD5/SHA hashes and Base64
 - Regex find and replace with highlight-all, find in files
 - Encoding and line-ending detection preserved on save; tabs, file tree, session restore, reload on external changes
+
+## Developer tools
+
+- Compare files side by side (git HEAD, saved version or another tab) with in-line differences
+- Git gutter with block revert, git status in the file tree, inline blame
+- Command palette, Quick Open with fuzzy search, go to line/symbol, project-wide symbols
+- Replace in files, code snippets with Tab, macros, column editor, clipboard history, continuous backup
+- HTML live preview, Emmet, tag auto-close and rename, CSS color swatches, JWT/URL/HTML entities/timestamp tools
+- .editorconfig, external formatters (Prettier, Black, swift-format), breadcrumbs, sticky scroll, regex tester, CSV/TSV table view
 
 ## Links
 

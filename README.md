@@ -79,6 +79,28 @@ Wine, no emulation. Signed and notarized by Apple.
 
 ![Find in files: search results grouped by file in the sidebar](docs/screenshots/find-in-files.png)
 
+## Tools for developers
+
+- **Compare files** side by side with in-line changes: against the last git
+  commit, the saved version or another tab.
+- **Git built in**: added/modified/deleted lines in the gutter (click to revert
+  a block), file status in the tree, inline blame.
+- **Command palette** (⇧⌘P) and **Quick Open** (⌘T) with fuzzy search,
+  `:line`, `@symbol` and project-wide symbols.
+- **Replace in files**, **snippets** with Tab, **macros**, clipboard history,
+  column editor and continuous backup of unsaved changes.
+- **Web**: HTML live preview, Emmet, tag auto-close and rename, CSS color
+  swatches, JWT/URL/HTML entity/timestamp tools.
+- `.editorconfig`, external formatters (Prettier, Black, swift-format…),
+  breadcrumbs, sticky scroll, a live **regex tester** and a **CSV/TSV table
+  view**.
+
+![Side-by-side file comparison with in-line differences highlighted](docs/screenshots/compare.png)
+
+![Command palette listing menu commands with their shortcuts](docs/screenshots/command-palette.png)
+
+![CSV file shown as a sortable table next to the source](docs/screenshots/csv-table.png)
+
 ## How it differs from Notepad++
 
 | | Notepad++ | GNote++ |
@@ -91,38 +113,38 @@ Wine, no emulation. Signed and notarized by Apple.
 
 GNote++ is not affiliated with or endorsed by Notepad++.
 
-## What's new in 1.4.0
+## What's new in 1.5.0
 
-- **Large Markdown toolbar**, word-processor style: big icons with labels,
-  dropdowns with live samples (headings at their size, list types, alerts in
-  their colour) and a grid to pick the table size. Switch between it and the
-  compact bar (⇕ button or View menu); the app remembers your choice. New:
-  link, highlight, keyboard key, subscript and superscript, horizontal rule,
-  collapsible section and footnote; ⌘B, ⌘I and ⌘K (link) shortcuts.
-- **Auto-indent** by language: Enter keeps the indentation and adds a level
-  after `{`, `[`, `(`, `:` in Python or an HTML/XML tag; closing brackets
-  align with their opener. **Reindent** a document or selection (Edit ▸
-  Whitespace).
-- **Format and minify JSON** (key order preserved) and **format XML**, in the
-  Tools menu, next to MD5/SHA-1/SHA-256 and Base64.
-- **Friendlier auto-close**: typing the `)`, `]`, `}` or quote the editor
-  already closed steps over it instead of doubling it.
-- **Minimap inside the editor**, next to the scroll bar.
-- **Visible highlights in dark mode**: find all, the current match, the
-  selected word, matching braces and tags, and multi-selection use theme
-  colours with good contrast. Dark theme with better contrast for diff, XML and
-  JSON, and dark blockquotes in the preview.
-- **More Notepad++ features**: save all; close others, to the right or all
-  (right-click a tab); drag tabs to reorder and middle-click to close; show
-  end of line, indent guides and edge line; tabs ↔ spaces; insert date and
-  time; replace in selection only; go to matching brace (⌃⌘B); new line and
-  case operations; View ▸ Summary.
-- Picking a heading replaces the line's existing heading.
-- ⌘Q with unsaved changes asks before quitting; saving a file that is a
-  symbolic link no longer replaces the link; "Replace all" undoes in one step;
-  switching theme updates every tab; closing a background tab no longer
-  changes the active one; the find counter shows which match you are on.
-- Complete English interface (some texts were still untranslated).
+- **Compare files** side by side, with in-line change highlights and synced
+  scrolling: against the last git commit (⌃⌘K), the saved version (⌃⇧⌘K) or
+  another tab.
+- **Built-in git**: added, modified and deleted lines in the gutter (click to
+  revert a block), file status in the file tree and inline blame (⌃⌘L). Never
+  triggers the command line tools install prompt.
+- **Command palette** (⇧⌘P) with every menu command, and **Quick Open** (⌘T)
+  with fuzzy search over open, recent and project files; `:line` and `@symbol`
+  to jump, `#` for project-wide symbols.
+- **Replace in files** (⇧⌘H) with a preview count; **find all** and **mark**
+  matches.
+- **Code snippets** that expand with Tab, with placeholder fields, and
+  built-in examples for Swift, JS/TS, Python, HTML and Markdown (⌃⌘I).
+- **Web tools**: HTML live preview, auto-close and rename of tags, Emmet
+  abbreviations (Tab), CSS color swatches with a color picker, and URL, HTML
+  entities, JWT and timestamp tools.
+- **For developers**: `.editorconfig` support, external formatters (Prettier,
+  Black, swift-format…, ⌥⇧⌘F), symbol breadcrumbs above the editor and sticky
+  scroll that keeps the current function in view.
+- **Live regular expression tester** (⌃⌘X) with groups and a warning for slow
+  patterns.
+- **CSV/TSV table view** (⌃⌘T): aligned columns, sort and copy columns, or
+  sort the file by a column.
+- **Macros** (record and play back), **column editor** (⌥⌘C), **clipboard
+  history** (⌘⇧V) and **continuous backup**: unsaved changes survive even if
+  the app quits.
+- **Collapsible outline**: fold each section, collapse or expand all, and show
+  up to a heading level.
+- Fixes: the app could hang on launch while restoring the session; the find
+  bar slid under the sidebar in narrow windows.
 
 [Full release history](https://jcubillosz.github.io/gnote-plus-plus/changelog/)
 
@@ -156,47 +178,45 @@ la detección de codificación (uchardet) y las definiciones de lenguajes y tema
 
 ## Descargar
 
-**[GNote++.dmg — v1.4.0](releases/v1.4.0/GNote++.dmg)** (también en
-[Releases](https://github.com/jcubillosz/gnote-plus-plus/releases/tag/v1.4.0)).
+**[GNote++.dmg — v1.5.0](releases/v1.5.0/GNote++.dmg)** (también en
+[Releases](https://github.com/jcubillosz/gnote-plus-plus/releases/tag/v1.5.0)).
 Firmado con Developer ID y notarizado por Apple — se abre sin advertencias de
 Gatekeeper.
 
-### Novedades en 1.4.0
+### Novedades en 1.5.0
 
-- **Barra de Markdown grande**, al estilo de los procesadores de texto: íconos
-  grandes con su nombre, desplegables con muestras (títulos a su tamaño,
-  tipos de lista, alertas con su color) y una cuadrícula para elegir el tamaño
-  de la tabla. Se alterna con la barra compacta (botón ⇕ o Vista) y la app
-  recuerda la elección. Nuevos: enlace, resaltado, tecla, subíndice y
-  superíndice, línea horizontal, sección plegable y nota al pie; atajos ⌘B,
-  ⌘I y ⌘K (enlace).
-- **Indentación automática** según el lenguaje: Enter mantiene la sangría y
-  sube un nivel tras `{`, `[`, `(`, `:` en Python o una etiqueta HTML/XML; el
-  cierre se alinea con su apertura. **Reindentar** documento o selección
-  (Editar ▸ Espacios en blanco).
-- **Formatear y minificar JSON** (conserva el orden de las claves) y
-  **formatear XML**, en el menú Herramientas, junto a MD5/SHA-1/SHA-256 y
-  Base64.
-- **Autocierre más cómodo**: escribir a mano el `)`, `]`, `}` o la comilla que
-  el editor ya cerró pasa por encima en vez de duplicarlo.
-- **Minimapa dentro del editor**, junto a la barra de scroll.
-- **Resaltados visibles en tema oscuro**: buscar todo, la coincidencia actual,
-  la palabra seleccionada, llaves y etiquetas pareadas y la multiselección
-  usan colores del tema con buen contraste. Tema oscuro con más contraste en
-  diff, XML y JSON, y citas de la vista previa en oscuro.
-- **Más funciones de Notepad++**: guardar todo; cerrar otras, a la derecha o
-  todas (clic derecho en la pestaña); arrastrar pestañas para ordenarlas y
-  cerrarlas con el clic del medio; mostrar fin de línea, guías de indentación
-  y línea de margen; tabs ↔ espacios; insertar fecha y hora; reemplazar solo
-  en la selección; ir a la llave pareja (⌃⌘B); nuevas operaciones de línea y
-  de mayúsculas; Vista ▸ Resumen.
-- Elegir un título reemplaza el que ya tenía la línea.
-- ⌘Q con cambios sin guardar pregunta antes de salir; guardar un archivo que
-  es un enlace simbólico ya no reemplaza el enlace; "Reemplazar todos" se
-  deshace de una vez; cambiar de tema actualiza todas las pestañas; cerrar una
-  pestaña de fondo ya no cambia la activa; el contador de la búsqueda muestra
-  en qué coincidencia estás.
-- Interfaz en inglés completa (quedaban textos sin traducir).
+- **Comparar archivos** lado a lado, con los cambios marcados dentro de cada
+  línea y desplazamiento sincronizado: con la última versión de git (⌃⌘K), con
+  la versión guardada (⌃⇧⌘K) o con otra pestaña.
+- **Git integrado**: marcas de líneas agregadas, modificadas y borradas en el
+  margen (clic para restaurar un bloque), estado de cada archivo en el árbol y
+  blame en línea (⌃⌘L). Nunca muestra el aviso de instalar herramientas de
+  línea de comandos.
+- **Paleta de comandos** (⇧⌘P) con todos los comandos de los menús y **abrir
+  rápido** (⌘T) con búsqueda aproximada en archivos abiertos, recientes y del
+  proyecto; `:línea` y `@símbolo` para saltar, `#` para símbolos de todo el
+  proyecto.
+- **Reemplazar en archivos** (⇧⌘H) con recuento previo; **buscar todo** y
+  **marcar** coincidencias.
+- **Fragmentos de código** (snippets) que se expanden con Tab y campos para
+  completar, con ejemplos para Swift, JS/TS, Python, HTML y Markdown (⌃⌘I).
+- **Funciones web**: vista previa de HTML, autocierre y renombrado de
+  etiquetas, abreviaturas Emmet (Tab), muestras de color CSS con selector y
+  herramientas para URL, entidades HTML, JWT y timestamps.
+- **Para programadores**: soporte de `.editorconfig`, formateadores externos
+  (Prettier, Black, swift-format…, ⌥⇧⌘F), ruta de símbolos sobre el editor y
+  encabezado fijo con la función actual al desplazarse.
+- **Probador de expresiones regulares** en vivo (⌃⌘X), con grupos y aviso de
+  patrones lentos.
+- **Vista de tabla para CSV/TSV** (⌃⌘T): columnas alineadas, ordenar y copiar
+  columnas, u ordenar el archivo por una columna.
+- **Macros** (grabar y reproducir), **editor de columna** (⌥⌘C), **historial
+  del portapapeles** (⌘⇧V) y **respaldo continuo**: los cambios sin guardar se
+  recuperan aunque la app se cierre.
+- **Esquema plegable**: plegar cada sección, plegar o desplegar todo y
+  mostrar hasta un nivel.
+- Arreglos: la app podía quedar colgada al abrir restaurando la sesión; la
+  barra de búsqueda quedaba bajo el panel lateral con la ventana angosta.
 
 [Historial completo de versiones](https://jcubillosz.github.io/gnote-plus-plus/es/changelog/)
 

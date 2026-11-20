@@ -43,6 +43,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let tabs else { return .terminateNow }
+        // Lo grabado vive en memoria hasta detener: salir grabando lo perdería.
+        if tabs.macros.isRecording { tabs.macros.stop(editor: tabs.editor) }
+        // Con respaldo, todo lo sin guardar queda en disco y vuelve al relanzar: no se
+        // pregunta (como Notepad++). Si la escritura falla, cae a la alerta de siempre.
+        let backupEnabled = tabs.preferences.backupEnabled
+        if backupEnabled, let fileTree, SessionBackup.flushSynchronously(tabs: tabs, fileTree: fileTree) {
+            SessionStore.save(tabs: tabs, fileTree: fileTree)
+            return .terminateNow
+        }
         let dirty = tabs.dirtyDocuments
         guard !dirty.isEmpty else { return .terminateNow }
         bringMainWindowToFront()
@@ -58,7 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: L("Descartar cambios"))
         switch alert.runModal() {
         case .alertFirstButtonReturn: return tabs.saveAll() ? .terminateNow : .terminateCancel
-        case .alertThirdButtonReturn: return .terminateNow
+        case .alertThirdButtonReturn:
+            // Descartar: los respaldos (quizá parciales) no deben resucitar lo descartado.
+            if backupEnabled { SessionBackup.preferenceChanged(enabled: false, tabs: tabs) }
+            return .terminateNow
         default: return .terminateCancel
         }
     }
@@ -79,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var willTerminateObserver: NSObjectProtocol?
 
     private var didBecomeActiveObserver: NSObjectProtocol?
+    private var backupTimer: Timer?
 
     /// Registra el guardado de sesión al cerrar la app. Se llama una sola vez desde el
     /// onAppear de la ventana principal, cuando ya existen `tabs` y `fileTree`.
@@ -100,6 +113,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             guard let self, let tabs = self.tabs, let fileTree = self.fileTree else { return }
             SessionStore.save(tabs: tabs, fileTree: fileTree)
+        }
+        tabs?.clipboardHistory.startPolling()
+        // Respaldo periódico; el tick no hace nada si no hubo ediciones desde el anterior.
+        backupTimer = Timer.scheduledTimer(withTimeInterval: 7, repeats: true) { [weak self] _ in
+            guard let self, let tabs = self.tabs, let fileTree = self.fileTree else { return }
+            MainActor.assumeIsolated { SessionBackup.tick(tabs: tabs, fileTree: fileTree) }
         }
     }
 }
@@ -155,8 +174,10 @@ struct NppMacPOCApp: App {
                 .onAppear {
                     appDelegate.tabs = tabs
                     appDelegate.fileTree = fileTree
+                    fileTree.fileIndex = tabs.fileIndex
                     appDelegate.observeTerminationForSessionSave()
                     appDelegate.observeActivationForExternalChanges()
+                    GitHunkRevertController.shared.installMonitor(editor: editor, tabs: tabs)
                     // Restauración de sesión (Task 13): solo la primera vez que aparece la
                     // ventana principal — un onAppear repetido (ej. reabrir tras minimizar)
                     // no debe reabrir todo de nuevo.
@@ -168,7 +189,7 @@ struct NppMacPOCApp: App {
                 }
         }
         .commands {
-            AppCommands(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preview: tabs.preview, spellCheck: tabs.spellCheck, preferences: preferences)
+            AppCommands(tabs: tabs, fileTree: fileTree, recentFiles: recentFiles, recentFolders: recentFolders, preview: tabs.preview, spellCheck: tabs.spellCheck, preferences: preferences, macros: tabs.macros, clipboardHistory: tabs.clipboardHistory)
         }
 
         Settings {

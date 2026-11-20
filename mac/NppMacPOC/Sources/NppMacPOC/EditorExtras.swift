@@ -43,6 +43,42 @@ func configureChangeHistoryMargin(_ editor: ScintillaView) {
         _ = call(editor, SCI_MARKERSETFORE, marker, color)
         _ = call(editor, SCI_MARKERSETBACK, marker, color)
     }
+    configureGitMargin(editor)
+}
+
+// MARK: - Margen de git
+
+private let gitMarkers = [MARKER_GIT_ADDED, MARKER_GIT_MODIFIED, MARKER_GIT_DELETED]
+
+/// Margen 4, a la derecha del historial. Arranca oculto: GitGutter lo muestra solo para
+/// documentos dentro de un repo.
+func configureGitMargin(_ editor: ScintillaView) {
+    _ = call(editor, SCI_SETMARGINTYPEN, MARGIN_GIT, SC_MARGIN_SYMBOL)
+    _ = call(editor, SCI_SETMARGINMASKN, MARGIN_GIT, gitMarkers.reduce(0) { $0 | (1 << $1) })
+    // Colores fijos (BGR), legibles sobre el margen claro y el oscuro.
+    let colors: [(Int, Int)] = [
+        (MARKER_GIT_ADDED, 0x43A02E),     // #2EA043
+        (MARKER_GIT_MODIFIED, 0xD6823B),  // #3B82D6
+        (MARKER_GIT_DELETED, 0x4D48E5),   // #E5484D
+    ]
+    for (marker, color) in colors {
+        _ = call(editor, SCI_MARKERSETFORE, marker, color)
+        _ = call(editor, SCI_MARKERSETBACK, marker, color)
+    }
+    setGitMarginVisible(editor, false)
+}
+
+/// Con el margen en ancho 0, Scintilla pinta los markers de su máscara como fondo de la línea
+/// entera (ViewStyle::CalculateMarginWidthAndMask): ocultos se definen como SC_MARK_EMPTY, así
+/// una pestaña con markers viejos no tiñe el texto antes del próximo cálculo.
+/// Borrado = SC_MARK_LEFTRECT: SC_MARK_ARROW en 4 pt mide 1–2 pt (LineMarker::Draw usa
+/// min(ancho, alto) - 1), invisible; se distingue por el color rojo.
+func setGitMarginVisible(_ editor: ScintillaView, _ visible: Bool) {
+    let symbols = visible ? [SC_MARK_FULLRECT, SC_MARK_FULLRECT, SC_MARK_LEFTRECT] : [SC_MARK_EMPTY, SC_MARK_EMPTY, SC_MARK_EMPTY]
+    for (marker, symbol) in zip(gitMarkers, symbols) {
+        _ = call(editor, SCI_MARKERDEFINE, marker, symbol)
+    }
+    _ = call(editor, SCI_SETMARGINWIDTHN, MARGIN_GIT, visible ? 4 : 0)
 }
 
 /// Reinicia el historial del documento activo. Llamar justo después de SCI_EMPTYUNDOBUFFER:

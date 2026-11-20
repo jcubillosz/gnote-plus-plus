@@ -5,6 +5,8 @@ import SwiftUI
 /// Tamaño de archivo y zoom quedan para una versión futura.
 struct StatusBarView: View {
     @ObservedObject var statusBar: StatusBarViewModel
+    // Anidado en TabsViewModel: se observa directo para ver isRecording.
+    @ObservedObject var macros: MacroRecorder
 
     var body: some View {
         HStack(spacing: 0) {
@@ -18,6 +20,20 @@ struct StatusBarView: View {
             }
 
             Spacer()
+
+            if macros.isRecording {
+                Divider()
+                Text("● " + L("Grabando macro"))
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 8)
+            }
+
+            if let info = statusBar.editorConfigInfo {
+                Divider()
+                Text("EC")
+                    .padding(.horizontal, 8)
+                    .help(info)
+            }
 
             Divider()
             Text(statusBar.eol)
